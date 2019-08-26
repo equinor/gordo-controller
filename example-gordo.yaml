@@ -1,0 +1,192 @@
+
+apiVersion: equinor.com/v1
+kind: Gordo
+metadata:
+  name: gordo-crd-testing-project2
+
+spec:
+  deploy-version: latest
+  config:
+    machines:
+      - dataset:
+          tags:
+          - TRA-35TT8566.PV
+          - TRA-35TT8567.PV
+          - TRA-35TT8568.PV
+          - TRA-35TT8569.PV
+          train_end_date: '2019-03-01T00:00:00+00:20'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+          type: TimeSeriesDataset
+        metadata:
+          information: 'Example with a minmax scaler and feed forward autoencoder'
+        model:
+          gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+            base_estimator:
+              sklearn.pipeline.Pipeline:
+                steps:
+                - sklearn.preprocessing.data.MinMaxScaler
+                - gordo_components.model.models.KerasAutoEncoder:
+                    kind: feedforward_hourglass
+        name: trolla-minmax-ff-model
+
+      - dataset:
+          tags:
+          - TRA-35TT8566.PV
+          - TRA-35TT8567.PV
+          - TRA-35TT8568.PV
+          - TRA-35TT8569.PV
+          train_end_date: '2019-03-01T00:00:00+00:00'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+        metadata:
+          information: 'Example with an LSTM autoencoder'
+        model:
+          gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+            base_estimator:
+              sklearn.pipeline.Pipeline:
+                  steps:
+                  - sklearn.preprocessing.data.MinMaxScaler
+                  - gordo_components.model.models.KerasLSTMAutoEncoder:
+                      kind: lstm_hourglass
+                      lookback_window: 10
+        name: trolla-minmax-lstm-ae
+
+      - dataset:
+          tags:
+          - TRA-35TT8566.PV
+          - TRA-35TT8567.PV
+          - TRA-35TT8568.PV
+          - TRA-35TT8569.PV
+          train_end_date: '2019-03-01T00:00:00+00:00'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+        metadata:
+          information: 'Example with an LSTM forecast one step autoencoder'
+        model:
+          gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+            base_estimator:
+              sklearn.pipeline.Pipeline:
+                  steps:
+                  - sklearn.preprocessing.data.MinMaxScaler
+                  - gordo_components.model.models.KerasLSTMForecast:
+                      kind: lstm_hourglass
+                      lookback_window: 10
+        name: trolla-minmax-lstm-forecast
+
+      - dataset:
+          tags:
+          - TRA-35TT8566.PV
+          - TRA-35TT8567.PV
+          - TRA-35TT8568.PV
+          - TRA-35TT8569.PV
+          train_end_date: '2019-03-01T00:00:00+00:00'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+        metadata:
+          information: 'This shows a basic pipeline with a feed forward autoencoder'
+        model:
+          gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+            base_estimator:
+              sklearn.pipeline.Pipeline:
+                steps:
+                - gordo_components.model.models.KerasAutoEncoder:
+                    kind: feedforward_hourglass
+        name: trolla-ff-model
+
+      - dataset:
+          tags:
+          - TRA-35TT8566.PV
+          - TRA-35TT8567.PV
+          - TRA-35TT8568.PV
+          - TRA-35TT8569.PV
+          train_end_date: '2019-03-01T00:00:00+00:00'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+        metadata:
+          information: 'This shows an example where we dont have a pipeline'
+        model:
+          gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+            base_estimator:
+              gordo_components.model.models.KerasAutoEncoder:
+                  kind: feedforward_hourglass
+        name: trolla-no-pipeline-ff-model
+
+      - dataset:
+          tags:
+          - TRA-35TT8566.PV
+          - TRA-35TT8567.PV
+          - TRA-35TT8568.PV
+          - TRA-35TT8569.PV
+          train_end_date: '2019-03-01T00:00:00+00:00'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+          row_filter: "(`TRA-35TT8566.PV` > 30) & (`TRA-35TT8566.PV` < 40)"
+        metadata:
+          information: 'This shows an example with a row filter'
+        model:
+          gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+            base_estimator:
+              sklearn.pipeline.Pipeline:
+                steps:
+                - sklearn.preprocessing.data.MinMaxScaler
+                - gordo_components.model.models.KerasAutoEncoder:
+                    kind: feedforward_model
+        name: trolla-rowfilter-model
+
+      - dataset:
+          asset: 1101-sfb
+          tags:
+          - HIC-13007%2FPosOut%2FPRIM
+          - TT-23285%2FMeas1%2FPRIM
+          train_start_date: 2019-01-01T00:00:00+01:00
+          train_end_date: 2019-02-01T00:00:00+01:00
+        metadata:
+          information: 'This shows an example where the asset key is needed to find the tags'
+        name: sfb-asset-key-needed
+
+      - dataset:
+          tags:
+            - TRA-35TT8566.PV
+            - TRA-35TT8567.PV
+          target_tag_list:
+            - TRA-35TT8568.PV
+          train_end_date: '2019-03-01T00:00:00+00:00'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+        metadata:
+          information: 'Use basic LinearRegression model'
+        model:
+          sklearn.pipeline.Pipeline:
+            steps:
+            - sklearn.decomposition.pca.PCA
+            - sklearn.linear_model.base.LinearRegression
+        runtime:
+          influx:
+            enable: False
+        name: trolla-supervised-lin-reg
+
+      - dataset:
+          tags:
+            - TRA-35TT8566.PV
+            - TRA-35TT8567.PV
+          target_tag_list:
+            - TRA-35TT8568.PV
+            - TRA-35TT8567.PV
+          train_end_date: '2019-03-01T00:00:00+00:00'
+          train_start_date: '2019-01-01T00:00:00+00:00'
+        metadata:
+          information: 'Use basic LinearRegression model with multiple target features'
+        model:
+          sklearn.pipeline.Pipeline:
+            steps:
+            - sklearn.decomposition.pca.PCA
+            - sklearn.multioutput.MultiOutputRegressor:
+                estimator: sklearn.linear_model.base.LinearRegression
+        runtime:
+          influx:
+            enable: False
+        name: trolla-supervised-lin-reg-multi
+
+    globals:
+      model:
+        gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+          base_estimator:
+            sklearn.pipeline.Pipeline:
+              steps:
+                - sklearn.preprocessing.data.MinMaxScaler
+                - gordo_components.model.models.KerasAutoEncoder:
+                    kind: feedforward_hourglass
