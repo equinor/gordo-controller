@@ -1,4 +1,4 @@
-version: 2.1
+version: 2
 
 jobs:
   build-image:
@@ -25,9 +25,15 @@ jobs:
             make push-prod-controller
 
 workflows:
+  version: 2
   build-and-test:
     jobs:
-      - build-image
+      - build-image:
+          filters:
+            branches:
+              only: /.*/
+            tags:
+              only: /.*/
       - push-image:
           requires:
             - build-image
