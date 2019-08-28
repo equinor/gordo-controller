@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 type GenerationNumber = Option<u32>;
 type Gordo = Object<GordoSpec, GordoStatus>;
 
+
 /// Represents the 'spec' field of a Gordo resource
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GordoSpec {
