@@ -32,7 +32,7 @@ impl Default for GordoStatus {
 }
 
 fn main() -> ! {
-    std::env::set_var("RUST_LOG", "info,kube=debug");
+    std::env::set_var("RUST_LOG", "info,kube=info");
     env_logger::init();
 
     let config = config::load_kube_config().unwrap_or_else(|_| {
