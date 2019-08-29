@@ -11,7 +11,6 @@ use serde_json::{json, Value};
 type GenerationNumber = Option<u32>;
 type Gordo = Object<GordoSpec, GordoStatus>;
 
-
 /// Represents the 'spec' field of a Gordo resource
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GordoSpec {
@@ -32,7 +31,7 @@ impl Default for GordoStatus {
     }
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> ! {
     std::env::set_var("RUST_LOG", "info,kube=debug");
     env_logger::init();
 
@@ -57,12 +56,12 @@ fn main() -> Result<(), failure::Error> {
 
     loop {
         // Update state changes
-        informer.poll()?;
+        informer.poll().unwrap_or_else(|e| error!("Failed to poll: {:?}", e));
 
         while let Some(event) = informer.pop() {
             match event {
                 WatchEvent::Added(gordo) => {
-                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace)?
+                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace)
                 }
                 WatchEvent::Modified(gordo) => {
                     info!(
@@ -78,14 +77,14 @@ fn main() -> Result<(), failure::Error> {
                                     if generation != &gordo.metadata.generation.map(|v| v as u32) {
                                         start_gordo_deploy_job(
                                             &gordo, &client, &resource, &namespace,
-                                        )?;
+                                        );
                                     }
                                 }
                             }
                         }
 
                         // No Gordo status
-                        None => start_gordo_deploy_job(&gordo, &client, &resource, &namespace)?,
+                        None => start_gordo_deploy_job(&gordo, &client, &resource, &namespace),
                     }
                 }
                 WatchEvent::Deleted(gordo) => {
@@ -131,12 +130,8 @@ fn launch_waiting_gordo_workflows(
                         }
                     })
                     .for_each(|gordo| {
-                        // Submit this gordo resource, logging any which failed to be submitted.
-                        if let Err(e) =
-                            start_gordo_deploy_job(gordo, &client, &resource, &namespace)
-                        {
-                            error!("Failed to start gordo deploy job: {:?}", e)
-                        }
+                        // Submit this gordo resource.
+                        start_gordo_deploy_job(gordo, &client, &resource, &namespace)
                     })
             }
         }
@@ -151,7 +146,7 @@ fn start_gordo_deploy_job(
     client: &APIClient,
     resource: &Api<Gordo>,
     namespace: &str,
-) -> Result<(), failure::Error> {
+) -> () {
     let gordo_config = serde_json::to_string(&gordo.spec.config).unwrap();
 
     // Create the job.
@@ -209,15 +204,20 @@ fn start_gordo_deploy_job(
         Err(e) => error!("Failed to submit job with error: {:?}", e),
     }
 
-    info!("Setting status of this gordo to 'Submitted'");
+    // Update the status of this job
+    info!(
+        "Setting status of this gordo '{:?}' to 'Submitted'",
+        &gordo.metadata.name
+    );
     let status = json!({
         "status": GordoStatus::Submitted(gordo.metadata.generation.map(|v| v as u32))
     });
-    let o = resource.patch_status(
+    match resource.patch_status(
         &gordo.metadata.name,
         &PatchParams::default(),
-        serde_json::to_vec(&status)?,
-    )?;
-    info!("Patched status: {:?}", o.status);
-    Ok(())
+        serde_json::to_vec(&status).expect("Status was not serializable, should never happen."),
+    ) {
+        Ok(o) => info!("Patched status: {:?}", o.status),
+        Err(e) => error!("Failed to patch status: {:?}", e),
+    };
 }
