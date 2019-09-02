@@ -8,13 +8,12 @@ COPY ./Cargo.toml ./Cargo.toml
 
 # This builds dependencies.
 RUN cargo build --release
-RUN rm src/*.rs
 
 # Copy in the actual source code for the project.
 COPY src/ src/
 
 # Build for release.
-RUN rm ./target/x86_64-unknown-linux-musl/release/gordo*
+RUN rm -rf ./target/x86_64-unknown-linux-musl/release/deps/gordo*
 RUN cargo build --release
 
 # Controller
