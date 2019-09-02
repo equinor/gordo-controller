@@ -1,4 +1,4 @@
-use kube::api::{Informer, ListParams, PatchParams};
+use kube::api::{DeleteParams, Informer, ListParams, PatchParams};
 use kube::{
     api::{Api, Object, PostParams, WatchEvent},
     client::APIClient,
@@ -56,7 +56,9 @@ fn main() -> ! {
 
     loop {
         // Update state changes
-        informer.poll().unwrap_or_else(|e| error!("Failed to poll: {:?}", e));
+        informer
+            .poll()
+            .unwrap_or_else(|e| error!("Failed to poll: {:?}", e));
 
         while let Some(event) = informer.pop() {
             match event {
@@ -68,7 +70,6 @@ fn main() -> ! {
                         "Gordo resource modified: {:?}, status is: {:?}",
                         &gordo.metadata.name, &gordo.status
                     );
-
                     match gordo.status {
                         Some(ref status) => {
                             match status {
@@ -88,7 +89,10 @@ fn main() -> ! {
                     }
                 }
                 WatchEvent::Deleted(gordo) => {
-                    info!("Gordo resource deleted: {:?}", gordo.metadata.name)
+                    info!("Gordo resource deleted: {:?}", gordo.metadata.name);
+
+                    // Remove any old jobs associated with this Gordo which has been deleted.
+                    remove_gordo_deploy_jobs(&gordo, &client, &namespace);
                 }
                 WatchEvent::Error(e) => info!("Gordo resource error: {:?}", e),
             }
@@ -168,7 +172,10 @@ fn start_gordo_deploy_job(
         "kind": "Job",
         "metadata": {
             "name": &job_name,
-            "ownerReferences": owner_ref
+            "ownerReferences": owner_ref,
+            "labels": {
+                "gordoProjectName": &gordo.metadata.name
+            }
         },
         "spec": {
             "template": {
@@ -193,6 +200,9 @@ fn start_gordo_deploy_job(
 
     });
     let serialized_spec = serde_json::to_vec(&spec).unwrap();
+
+    // Before launching this job, remove previous jobs for this project
+    remove_gordo_deploy_jobs(&gordo, &client, &namespace);
 
     // Send off job, later we can add support to watching the job if needed via `jobs.watch(..)`
     info!("Launching job - {}!", &job_name);
@@ -220,4 +230,33 @@ fn start_gordo_deploy_job(
         Ok(o) => info!("Patched status: {:?}", o.status),
         Err(e) => error!("Failed to patch status: {:?}", e),
     };
+}
+
+/// Remove any gordo deploy jobs associated with this `Gordo`
+fn remove_gordo_deploy_jobs(
+    gordo: &Gordo,
+    client: &APIClient,
+    namespace: &str,
+) -> () {
+    info!(
+        "Removing any gordo-deploy jobs for Gordo: '{}'",
+        &gordo.metadata.name
+    );
+
+    let jobs = Api::v1Job(client.clone()).within(&namespace);
+    match jobs.list(&ListParams::default()) {
+        Ok(job_list) => job_list
+            .items
+            .iter()
+            .filter(|job| job.metadata.labels.get("gordoProjectName") == Some(&gordo.metadata.name))
+            .for_each(|job| {
+                if let Err(err) = jobs.delete(&job.metadata.name, &DeleteParams::default()) {
+                    error!(
+                        "Failed to delete old gordo job: '{}' with error: {:?}",
+                        &job.metadata.name, err
+                    )
+                }
+            }),
+        Err(e) => error!("Failed to list jobs: {:?}", e),
+    }
 }
