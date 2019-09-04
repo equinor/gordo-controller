@@ -8,6 +8,9 @@ use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+#[cfg(test)]
+mod tests;
+
 type GenerationNumber = Option<u32>;
 type Gordo = Object<GordoSpec, GordoStatus>;
 
@@ -104,7 +107,7 @@ fn main() -> ! {
 /// has set in its `metadata.generation`; meaning changes have been submitted to the resource but
 /// the `GordoStatus` has not been updated to reflect this and therefore needs to be submitted to
 /// the workflow generator job.
-fn launch_waiting_gordo_workflows(
+pub(crate) fn launch_waiting_gordo_workflows(
     resource: &Api<Gordo>,
     client: &APIClient,
     namespace: &str,
@@ -144,7 +147,7 @@ fn launch_waiting_gordo_workflows(
 }
 
 // Get a minor version from standard SemVer string
-fn minor_version(deploy_version: &str) -> Option<u32> {
+pub fn minor_version(deploy_version: &str) -> Option<u32> {
     deploy_version
         .split('.')
         .skip(1)
@@ -251,7 +254,7 @@ fn start_gordo_deploy_job(
 }
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
-fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {
+pub(crate) fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {
     info!(
         "Removing any gordo-deploy jobs for Gordo: '{}'",
         &gordo.metadata.name
@@ -272,18 +275,5 @@ fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) 
                 }
             }),
         Err(e) => error!("Failed to list jobs: {:?}", e),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::*;
-
-    #[test]
-    fn test_minor_version() {
-        assert_eq!(minor_version("0.33.0"), Some(33));
-        assert_eq!(minor_version("0.31.12"), Some(31));
-        assert_eq!(minor_version("0.abc.def"), None);
     }
 }
