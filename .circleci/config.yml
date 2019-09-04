@@ -1,6 +1,109 @@
-version: 2
+version: 2.1
+
+orbs:
+  kube-orb: circleci/kubernetes@0.4.0
 
 jobs:
+
+  build:
+    environment:
+      CHANGE_MINIKUBE_NONE_USER=true
+      BASH_ENV=~/.bashrc
+    machine:
+      image: 'circleci/classic:201808-01'
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            # Restores the first cache matching a key; most specific first.
+            - v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v1-cargo-cache-{{ arch }}-{{ .Branch }}
+            - v1-cargo-cache-{{ arch }}
+      - run:
+          name: Install Rust
+          command:  |
+            if ! [ -x "$(command -v cargo)" ]; then
+              echo 'Cargo not found, installing it'
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              echo 'export PATH=$PATH:$HOME/.cargo/bin' >> $BASH_ENV
+            else
+              echo 'Found Cargo install'
+            fi
+      - save_cache:
+          paths:
+            - ~/.bashrc
+            - ~/.cargo
+          key: v1-cargo-cache-{{ arch }}
+      - run:
+          name: Rust Build
+          command: cargo build
+      - save_cache:
+          paths:
+            - ~/.bashrc
+            - ~/.cargo
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          # If build failed, we want to save some time next build and save the cache for this branch
+          # for whatever dependencies were compiled before the build itself failed.
+          when: on_fail
+          key: v1-cargo-cache-{{ arch }}-{{ .Branch }}
+
+      - save_cache:
+          paths:
+            - ~/.bashrc
+            - ~/.cargo
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          when: on_success
+          key: v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+  test:
+    environment:
+      CHANGE_MINIKUBE_NONE_USER=true
+      BASH_ENV=~/.bashrc
+    machine:
+      image: 'circleci/classic:201808-01'
+    steps:
+      - checkout
+      - kube-orb/install
+      - restore_cache:
+          keys:
+            # Restores the first cache matching a key; most specific first.
+            - v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v1-cargo-cache-{{ arch }}-{{ .Branch }}
+            - v1-cargo-cache-{{ arch }}
+      - run:
+          name: Install Rust
+          command:  |
+            if ! [ -x "$(command -v cargo)" ]; then
+              echo 'Cargo not found, installing it'
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              echo 'export PATH=$PATH:$HOME/.cargo/bin' >> $BASH_ENV
+            fi
+      - run:
+          command: >
+            curl -Lo minikube
+            https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+            \
+              && chmod +x minikube
+            sudo cp minikube /usr/local/bin && rm minikube
+
+            sudo -E minikube start --vm-driver=none --cpus 2 --memory 2048
+          name: Start minikube
+
+      - kube-orb/create-or-update-resource:
+          namespace: default
+          resource-file-path: gordo-crd.yaml
+          show-kubectl-command: true
+      - run:
+          command: kubectl get gordos
+      - run:
+          name: Rust Test
+          command: cargo test -- --test-threads=1
+
   build-image:
     machine:
       docker_layer_caching: true
@@ -25,9 +128,13 @@ jobs:
             make push-prod-controller
 
 workflows:
-  version: 2
+  version: 2.1
   build-and-test:
     jobs:
+      - build
+      - test:
+          requires:
+            - build
       - build-image:
           filters:
             branches:
