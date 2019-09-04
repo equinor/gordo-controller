@@ -143,6 +143,17 @@ fn launch_waiting_gordo_workflows(
     }
 }
 
+// Get a minor version from standard SemVer string
+fn minor_version(deploy_version: &str) -> Option<u32> {
+    deploy_version
+        .split('.')
+        .skip(1)
+        .take(1)
+        .map(|v| v.parse::<u32>().ok())
+        .last()
+        .unwrap_or(None)
+}
+
 /// Start a gordo-deploy job using this `Gordo`.
 /// Will patch the status of the `Gordo` to reflect the current revision number
 fn start_gordo_deploy_job(
@@ -166,6 +177,13 @@ fn start_gordo_deploy_job(
     ]);
     let owner_ref_as_string = serde_json::to_string(&owner_ref).unwrap();
 
+    // TODO: Remove this after a few weeks/months when people have migrated >= 0.33 of gordo-deploy
+    let gordo_deploy_key_val = if minor_version(&gordo.spec.deploy_version) >= Some(33) {
+        json!({"name": "GORDO_NAME", "value": &gordo.metadata.name})
+    } else {
+        json!({"name": "MACHINE_CONFIG", "value": gordo_config})
+    };
+
     // Job spec for launching this gordo config into a workflow
     let spec = json!({
         "apiVersion": "batch/v1",
@@ -187,7 +205,7 @@ fn start_gordo_deploy_job(
                         "name": "gordo-deploy",
                         "image": &format!("auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy:{}", &gordo.spec.deploy_version),
                         "env": [
-                            {"name": "MACHINE_CONFIG", "value": gordo_config},
+                            gordo_deploy_key_val,
                             {"name": "ARGO_SUBMIT", "value":  "true"},
                             {"name": "WORKFLOW_GENERATOR_PROJECT_NAME", "value": &gordo.metadata.name},
                             {"name": "WORKFLOW_GENERATOR_OWNER_REFERENCES", "value": owner_ref_as_string}
@@ -233,11 +251,7 @@ fn start_gordo_deploy_job(
 }
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
-fn remove_gordo_deploy_jobs(
-    gordo: &Gordo,
-    client: &APIClient,
-    namespace: &str,
-) -> () {
+fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {
     info!(
         "Removing any gordo-deploy jobs for Gordo: '{}'",
         &gordo.metadata.name
@@ -258,5 +272,18 @@ fn remove_gordo_deploy_jobs(
                 }
             }),
         Err(e) => error!("Failed to list jobs: {:?}", e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::*;
+
+    #[test]
+    fn test_minor_version() {
+        assert_eq!(minor_version("0.33.0"), Some(33));
+        assert_eq!(minor_version("0.31.12"), Some(31));
+        assert_eq!(minor_version("0.abc.def"), None);
     }
 }
