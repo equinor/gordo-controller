@@ -232,7 +232,10 @@ fn start_gordo_deploy_job(
 
     match jobs.create(&postparams, serialized_spec) {
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
-        Err(e) => error!("Failed to submit job with error: {:?}", e),
+        Err(e) => {
+            error!("Failed to submit job with error: {:?}", e);
+            unimplemented!("Haven't implemented a way to deal with this, exiting."); // Kubernetes will restart us
+        }
     }
 
     // Update the status of this job
