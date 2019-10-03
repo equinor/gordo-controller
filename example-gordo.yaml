@@ -10,10 +10,10 @@ spec:
     machines:
       - dataset:
           tags:
-          - TRA-35TT8566.PV
-          - TRA-35TT8567.PV
-          - TRA-35TT8568.PV
-          - TRA-35TT8569.PV
+            - TAG-A
+            - TAG-B
+            - TAG-C
+            - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:20'
           train_start_date: '2019-01-01T00:00:00+00:00'
           type: TimeSeriesDataset
@@ -31,10 +31,10 @@ spec:
 
       - dataset:
           tags:
-          - TRA-35TT8566.PV
-          - TRA-35TT8567.PV
-          - TRA-35TT8568.PV
-          - TRA-35TT8569.PV
+            - TAG-A
+            - TAG-B
+            - TAG-C
+            - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
         metadata:
@@ -52,10 +52,9 @@ spec:
 
       - dataset:
           tags:
-          - TRA-35TT8566.PV
-          - TRA-35TT8567.PV
-          - TRA-35TT8568.PV
-          - TRA-35TT8569.PV
+            - TAG-A
+            - TAG-B
+            - TAG-C
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
         metadata:
@@ -73,10 +72,10 @@ spec:
 
       - dataset:
           tags:
-          - TRA-35TT8566.PV
-          - TRA-35TT8567.PV
-          - TRA-35TT8568.PV
-          - TRA-35TT8569.PV
+            - TAG-A
+            - TAG-B
+            - TAG-C
+            - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
         metadata:
@@ -92,10 +91,10 @@ spec:
 
       - dataset:
           tags:
-          - TRA-35TT8566.PV
-          - TRA-35TT8567.PV
-          - TRA-35TT8568.PV
-          - TRA-35TT8569.PV
+            - TAG-A
+            - TAG-B
+            - TAG-C
+            - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
         metadata:
@@ -109,10 +108,10 @@ spec:
 
       - dataset:
           tags:
-          - TRA-35TT8566.PV
-          - TRA-35TT8567.PV
-          - TRA-35TT8568.PV
-          - TRA-35TT8569.PV
+            - TAG-A
+            - TAG-B
+            - TAG-C
+            - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
           row_filter: "(`TRA-35TT8566.PV` > 30) & (`TRA-35TT8566.PV` < 40)"
@@ -131,8 +130,8 @@ spec:
       - dataset:
           asset: 1101-sfb
           tags:
-          - HIC-13007%2FPosOut%2FPRIM
-          - TT-23285%2FMeas1%2FPRIM
+            - TAG-A
+            - TAG-B
           train_start_date: 2019-01-01T00:00:00+01:00
           train_end_date: 2019-02-01T00:00:00+01:00
         metadata:
@@ -141,10 +140,10 @@ spec:
 
       - dataset:
           tags:
-            - TRA-35TT8566.PV
-            - TRA-35TT8567.PV
+            - TAG-A
+            - TAG-B
           target_tag_list:
-            - TRA-35TT8568.PV
+            - TAG-C
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
         metadata:
@@ -161,11 +160,11 @@ spec:
 
       - dataset:
           tags:
-            - TRA-35TT8566.PV
-            - TRA-35TT8567.PV
+            - TAG-A
+            - TAG-B
           target_tag_list:
-            - TRA-35TT8568.PV
-            - TRA-35TT8567.PV
+            - TAG-C
+            - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
         metadata:
