@@ -106,7 +106,7 @@ jobs:
 
   build-image:
     machine:
-      docker_layer_caching: true
+      docker_layer_caching: false
     steps:
       - checkout
       - run:
@@ -116,7 +116,7 @@ jobs:
 
   push-image:
     machine:
-      docker_layer_caching: true
+      docker_layer_caching: false
     environment:
       GORDO_PROD_MODE: true
     steps:
