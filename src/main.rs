@@ -56,10 +56,10 @@ fn main() -> ! {
         GordoEnvironmentConfig::default()
     });
 
-    let config = config::load_kube_config().unwrap_or_else(|_| {
+    let kube_config = config::load_kube_config().unwrap_or_else(|_| {
         config::incluster_config().expect("Failed to get local kube config and incluster config")
     });
-    let client = APIClient::new(config);
+    let client = APIClient::new(kube_config);
 
     let namespace = std::env::var("NAMESPACE").unwrap_or("kubeflow".into());
 
