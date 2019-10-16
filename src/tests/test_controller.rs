@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
 
-use kube::api::{DeleteParams, ListParams, PostParams};
+use kube::api::{DeleteParams, ListParams, PostParams, Reflector};
 use kube::{api::Api, client::APIClient, config};
 use serde_json::Value;
 use serde_yaml;
@@ -75,7 +75,8 @@ fn test_launch_waiting_gordos() {
 
     // Launch the waiting config.
     let resource = helpers::gordo_custom_resource_api(client.clone());
-    let config_map = load_config_map(client.clone(), "default");
+    let config_map_reflector = Reflector::new(Api::v1ConfigMap(client.clone()).within("default"));
+    let config_map = load_config_map(&config_map_reflector);
     crate::launch_waiting_gordo_workflows(&resource, &client, "default", &config_map);
 
     // Now we should have one job.

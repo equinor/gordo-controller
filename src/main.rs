@@ -1,4 +1,4 @@
-use kube::api::{DeleteParams, Informer, ListParams, PatchParams};
+use kube::api::{v1ConfigMap, DeleteParams, Informer, ListParams, PatchParams, Reflector};
 use kube::{
     api::{Api, Object, PostParams, WatchEvent},
     client::APIClient,
@@ -72,7 +72,9 @@ fn main() -> ! {
 
     let namespace = std::env::var("NAMESPACE").unwrap_or("kubeflow".into());
 
-    let config_map = load_config_map(client.clone(), &namespace);
+    let config_map_resource = Api::v1ConfigMap(client.clone()).within(&namespace);
+    let config_map_reflector = Reflector::new(config_map_resource).init().unwrap();
+    let mut config_map = load_config_map(&config_map_reflector);
     info!("Loaded config map: {:?}", &config_map);
 
     let resource: Api<Gordo> = Api::customResource(client.clone(), "gordos")
@@ -88,10 +90,16 @@ fn main() -> ! {
     launch_waiting_gordo_workflows(&resource, &client, &namespace, &config_map);
 
     loop {
+        // Update config map changes
+        config_map_reflector
+            .poll()
+            .unwrap_or_else(|e| panic!("Failed to poll config map changes: {:?}", e));
+        config_map = load_config_map(&config_map_reflector);
+
         // Update state changes
         informer
             .poll()
-            .unwrap_or_else(|e| error!("Failed to poll: {:?}", e));
+            .unwrap_or_else(|e| panic!("Failed to poll Gordo event changes: {:?}", e));
 
         while let Some(event) = informer.pop() {
             match event {
@@ -144,26 +152,14 @@ fn main() -> ! {
 }
 
 /// Load the gordo-controller k8s config map, if it isn't found, fallback to the default config
-pub(crate) fn load_config_map(client: APIClient, namespace: &str) -> GordoControllerConfigMap {
-    match Api::v1ConfigMap(client)
-        .within(&namespace)
-        .get(&DEFAULT_CONFIG_MAP_NAME)
-    {
-        Ok(config_map) => {
-            info!(
-                "Loaded config map '{}' with data: '{:?}'",
-                &config_map.metadata.name, &config_map.data
-            );
-            GordoControllerConfigMap::from(config_map.data)
-        }
-        Err(err) => {
-            error!(
-                "Failed finding config map '{}' with error: {:?}, falling back to default config.",
-                &DEFAULT_CONFIG_MAP_NAME, err
-            );
-            GordoControllerConfigMap::default()
-        }
-    }
+pub(crate) fn load_config_map(rf: &Reflector<v1ConfigMap>) -> GordoControllerConfigMap {
+    rf.read()
+        .unwrap()
+        .into_iter()
+        .filter(|config| config.metadata.name == DEFAULT_CONFIG_MAP_NAME)
+        .map(|config| GordoControllerConfigMap::from(config.data))
+        .last()
+        .unwrap_or_default()
 }
 
 /// Look for and submit `Gordo`s which have a `GenerationNumber` different than what Kubernetes
