@@ -1,10 +1,23 @@
+use std::collections::BTreeMap;
+use std::iter::FromIterator;
+
 use kube::api::{DeleteParams, ListParams, PostParams};
 use kube::{api::Api, client::APIClient, config};
 use serde_json::Value;
 use serde_yaml;
 
 use crate::tests::helpers;
-use crate::Gordo;
+use crate::{load_config_map, Gordo, GordoControllerConfigMap};
+
+#[test]
+fn test_controller_config_map_from() {
+    let data = BTreeMap::from_iter(vec![(
+        "deploy-image".to_owned(),
+        "test-image-location".to_owned(),
+    )]);
+    let config = GordoControllerConfigMap::from(data);
+    assert_eq!(&config.deploy_image, "test-image-location")
+}
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -62,7 +75,8 @@ fn test_launch_waiting_gordos() {
 
     // Launch the waiting config.
     let resource = helpers::gordo_custom_resource_api(client.clone());
-    crate::launch_waiting_gordo_workflows(&resource, &client, "default");
+    let config_map = load_config_map(client.clone(), "default");
+    crate::launch_waiting_gordo_workflows(&resource, &client, "default", &config_map);
 
     // Now we should have one job.
     assert_eq!(jobs.list(&ListParams::default()).unwrap().items.len(), 1);
