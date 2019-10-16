@@ -1,4 +1,4 @@
-use kube::api::{v1ConfigMap, DeleteParams, Informer, ListParams, PatchParams, Reflector};
+use kube::api::{DeleteParams, Informer, ListParams, PatchParams};
 use kube::{
     api::{Api, Object, PostParams, WatchEvent},
     client::APIClient,
@@ -7,15 +7,24 @@ use kube::{
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
 
 #[cfg(test)]
 mod tests;
 
-static DEFAULT_CONFIG_MAP_NAME: &str = "deploy-image";
-
 type GenerationNumber = Option<u32>;
 type Gordo = Object<GordoSpec, GordoStatus>;
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct GordoEnvironmentConfig {
+    deploy_image: String,
+}
+impl Default for GordoEnvironmentConfig {
+    fn default() -> Self {
+        GordoEnvironmentConfig {
+            deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
+        }
+    }
+}
 
 /// Represents the 'spec' field of a Gordo resource
 #[derive(Serialize, Deserialize, Clone)]
@@ -23,30 +32,6 @@ pub struct GordoSpec {
     #[serde(rename = "deploy-version")]
     deploy_version: String,
     config: Value,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct GordoControllerConfigMap {
-    deploy_image: String,
-}
-
-impl Default for GordoControllerConfigMap {
-    fn default() -> Self {
-        GordoControllerConfigMap {
-            deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
-        }
-    }
-}
-impl From<BTreeMap<String, String>> for GordoControllerConfigMap {
-    fn from(data: BTreeMap<String, String>) -> Self {
-        let default_config = GordoControllerConfigMap::default();
-        GordoControllerConfigMap {
-            deploy_image: data
-                .get("deploy-image")
-                .map(|s| s.to_owned())
-                .unwrap_or_else(|| default_config.deploy_image.to_owned()),
-        }
-    }
 }
 
 /// Represents the possible 'status' of a Gordo resource
@@ -65,17 +50,18 @@ fn main() -> ! {
     std::env::set_var("RUST_LOG", "info,kube=info");
     env_logger::init();
 
+    // Load environment variables
+    let env_config = envy::from_env::<GordoEnvironmentConfig>().unwrap_or_else(|e| {
+        error!("Failed to load environment config, using defaults: {:?}", e);
+        GordoEnvironmentConfig::default()
+    });
+
     let config = config::load_kube_config().unwrap_or_else(|_| {
         config::incluster_config().expect("Failed to get local kube config and incluster config")
     });
     let client = APIClient::new(config);
 
     let namespace = std::env::var("NAMESPACE").unwrap_or("kubeflow".into());
-
-    let config_map_resource = Api::v1ConfigMap(client.clone()).within(&namespace);
-    let config_map_reflector = Reflector::new(config_map_resource).init().unwrap();
-    let mut config_map = load_config_map(&config_map_reflector);
-    info!("Loaded config map: {:?}", &config_map);
 
     let resource: Api<Gordo> = Api::customResource(client.clone(), "gordos")
         .version("v1")
@@ -87,24 +73,18 @@ fn main() -> ! {
     // On start up, get a list of all gordos, and start gordo-deploy jobs for each
     // which doesn't have a Submitted(revision) which doesn't match its current revision
     // or otherwise hasn't been submitted at all.
-    launch_waiting_gordo_workflows(&resource, &client, &namespace, &config_map);
+    launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config);
 
     loop {
-        // Update config map changes
-        config_map_reflector
-            .poll()
-            .unwrap_or_else(|e| panic!("Failed to poll config map changes: {:?}", e));
-        config_map = load_config_map(&config_map_reflector);
-
         // Update state changes
         informer
             .poll()
-            .unwrap_or_else(|e| panic!("Failed to poll Gordo event changes: {:?}", e));
+            .unwrap_or_else(|e| error!("Failed to poll: {:?}", e));
 
         while let Some(event) = informer.pop() {
             match event {
                 WatchEvent::Added(gordo) => {
-                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &config_map)
+                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config)
                 }
                 WatchEvent::Modified(gordo) => {
                     info!(
@@ -122,7 +102,7 @@ fn main() -> ! {
                                             &client,
                                             &resource,
                                             &namespace,
-                                            &config_map,
+                                            &env_config,
                                         );
                                     }
                                 }
@@ -135,7 +115,7 @@ fn main() -> ! {
                             &client,
                             &resource,
                             &namespace,
-                            &config_map,
+                            &env_config,
                         ),
                     }
                 }
@@ -151,17 +131,6 @@ fn main() -> ! {
     }
 }
 
-/// Load the gordo-controller k8s config map, if it isn't found, fallback to the default config
-pub(crate) fn load_config_map(rf: &Reflector<v1ConfigMap>) -> GordoControllerConfigMap {
-    rf.read()
-        .unwrap()
-        .into_iter()
-        .filter(|config| config.metadata.name == DEFAULT_CONFIG_MAP_NAME)
-        .map(|config| GordoControllerConfigMap::from(config.data))
-        .last()
-        .unwrap_or_default()
-}
-
 /// Look for and submit `Gordo`s which have a `GenerationNumber` different than what Kubernetes
 /// has set in its `metadata.generation`; meaning changes have been submitted to the resource but
 /// the `GordoStatus` has not been updated to reflect this and therefore needs to be submitted to
@@ -170,7 +139,7 @@ pub(crate) fn launch_waiting_gordo_workflows(
     resource: &Api<Gordo>,
     client: &APIClient,
     namespace: &str,
-    config_map: &GordoControllerConfigMap,
+    env_config: &GordoEnvironmentConfig,
 ) -> () {
     match resource.list(&ListParams::default()) {
         Ok(gordos) => {
@@ -198,7 +167,7 @@ pub(crate) fn launch_waiting_gordo_workflows(
                     })
                     .for_each(|gordo| {
                         // Submit this gordo resource.
-                        start_gordo_deploy_job(gordo, &client, &resource, &namespace, &config_map)
+                        start_gordo_deploy_job(gordo, &client, &resource, &namespace, &env_config)
                     })
             }
         }
@@ -224,7 +193,7 @@ fn start_gordo_deploy_job(
     client: &APIClient,
     resource: &Api<Gordo>,
     namespace: &str,
-    config_map: &GordoControllerConfigMap,
+    env_config: &GordoEnvironmentConfig,
 ) -> () {
     let gordo_config = serde_json::to_string(&gordo.spec.config).unwrap();
 
@@ -267,7 +236,7 @@ fn start_gordo_deploy_job(
                 "spec": {
                     "containers": [{
                         "name": "gordo-deploy",
-                        "image": &format!("{}:{}", &config_map.deploy_image, &gordo.spec.deploy_version),
+                        "image": &format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version),
                         "env": [
                             gordo_deploy_key_val,
                             {"name": "ARGO_SUBMIT", "value":  "true"},
