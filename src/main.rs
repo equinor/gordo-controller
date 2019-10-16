@@ -79,7 +79,7 @@ fn main() -> ! {
         // Update state changes
         informer
             .poll()
-            .unwrap_or_else(|e| error!("Failed to poll: {:?}", e));
+            .unwrap_or_else(|e| panic!("Failed to poll: {:?}", e));
 
         while let Some(event) = informer.pop() {
             match event {
