@@ -4,7 +4,7 @@ use serde_json::Value;
 use serde_yaml;
 
 use crate::tests::helpers;
-use crate::Gordo;
+use crate::{Gordo, GordoEnvironmentConfig};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -62,7 +62,12 @@ fn test_launch_waiting_gordos() {
 
     // Launch the waiting config.
     let resource = helpers::gordo_custom_resource_api(client.clone());
-    crate::launch_waiting_gordo_workflows(&resource, &client, "default");
+    crate::launch_waiting_gordo_workflows(
+        &resource,
+        &client,
+        "default",
+        &GordoEnvironmentConfig::default(),
+    );
 
     // Now we should have one job.
     assert_eq!(jobs.list(&ListParams::default()).unwrap().items.len(), 1);

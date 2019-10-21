@@ -14,6 +14,18 @@ mod tests;
 type GenerationNumber = Option<u32>;
 type Gordo = Object<GordoSpec, GordoStatus>;
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct GordoEnvironmentConfig {
+    deploy_image: String,
+}
+impl Default for GordoEnvironmentConfig {
+    fn default() -> Self {
+        GordoEnvironmentConfig {
+            deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
+        }
+    }
+}
+
 /// Represents the 'spec' field of a Gordo resource
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GordoSpec {
@@ -38,10 +50,16 @@ fn main() -> ! {
     std::env::set_var("RUST_LOG", "info,kube=info");
     env_logger::init();
 
-    let config = config::load_kube_config().unwrap_or_else(|_| {
+    // Load environment variables
+    let env_config = envy::from_env::<GordoEnvironmentConfig>().unwrap_or_else(|e| {
+        error!("Failed to load environment config, using defaults: {:?}", e);
+        GordoEnvironmentConfig::default()
+    });
+
+    let kube_config = config::load_kube_config().unwrap_or_else(|_| {
         config::incluster_config().expect("Failed to get local kube config and incluster config")
     });
-    let client = APIClient::new(config);
+    let client = APIClient::new(kube_config);
 
     let namespace = std::env::var("NAMESPACE").unwrap_or("kubeflow".into());
 
@@ -55,18 +73,18 @@ fn main() -> ! {
     // On start up, get a list of all gordos, and start gordo-deploy jobs for each
     // which doesn't have a Submitted(revision) which doesn't match its current revision
     // or otherwise hasn't been submitted at all.
-    launch_waiting_gordo_workflows(&resource, &client, &namespace);
+    launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config);
 
     loop {
         // Update state changes
         informer
             .poll()
-            .unwrap_or_else(|e| error!("Failed to poll: {:?}", e));
+            .unwrap_or_else(|e| panic!("Failed to poll: {:?}", e));
 
         while let Some(event) = informer.pop() {
             match event {
                 WatchEvent::Added(gordo) => {
-                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace)
+                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config)
                 }
                 WatchEvent::Modified(gordo) => {
                     info!(
@@ -80,7 +98,11 @@ fn main() -> ! {
                                     // If it's submitted, we only want to launch the job if the GenerationNumber has changed.
                                     if generation != &gordo.metadata.generation.map(|v| v as u32) {
                                         start_gordo_deploy_job(
-                                            &gordo, &client, &resource, &namespace,
+                                            &gordo,
+                                            &client,
+                                            &resource,
+                                            &namespace,
+                                            &env_config,
                                         );
                                     }
                                 }
@@ -88,7 +110,13 @@ fn main() -> ! {
                         }
 
                         // No Gordo status
-                        None => start_gordo_deploy_job(&gordo, &client, &resource, &namespace),
+                        None => start_gordo_deploy_job(
+                            &gordo,
+                            &client,
+                            &resource,
+                            &namespace,
+                            &env_config,
+                        ),
                     }
                 }
                 WatchEvent::Deleted(gordo) => {
@@ -111,6 +139,7 @@ pub(crate) fn launch_waiting_gordo_workflows(
     resource: &Api<Gordo>,
     client: &APIClient,
     namespace: &str,
+    env_config: &GordoEnvironmentConfig,
 ) -> () {
     match resource.list(&ListParams::default()) {
         Ok(gordos) => {
@@ -138,7 +167,7 @@ pub(crate) fn launch_waiting_gordo_workflows(
                     })
                     .for_each(|gordo| {
                         // Submit this gordo resource.
-                        start_gordo_deploy_job(gordo, &client, &resource, &namespace)
+                        start_gordo_deploy_job(gordo, &client, &resource, &namespace, &env_config)
                     })
             }
         }
@@ -164,6 +193,7 @@ fn start_gordo_deploy_job(
     client: &APIClient,
     resource: &Api<Gordo>,
     namespace: &str,
+    env_config: &GordoEnvironmentConfig,
 ) -> () {
     let gordo_config = serde_json::to_string(&gordo.spec.config).unwrap();
 
@@ -206,7 +236,7 @@ fn start_gordo_deploy_job(
                 "spec": {
                     "containers": [{
                         "name": "gordo-deploy",
-                        "image": &format!("auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy:{}", &gordo.spec.deploy_version),
+                        "image": &format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version),
                         "env": [
                             gordo_deploy_key_val,
                             {"name": "ARGO_SUBMIT", "value":  "true"},

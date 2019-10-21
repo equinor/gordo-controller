@@ -4,7 +4,7 @@ GORDO_CONTROLLER_IMG_NAME := equinor/gordo-controller
 controller:
 	docker build . -f Dockerfile-controller -t $(GORDO_CONTROLLER_IMG_NAME)
 
-push-controller:
+push-controller: controller
 	export DOCKER_NAME=$(GORDO_CONTROLLER_IMG_NAME);\
 	export DOCKER_IMAGE=$(GORDO_CONTROLLER_IMG_NAME);\
 	./docker_push.sh
