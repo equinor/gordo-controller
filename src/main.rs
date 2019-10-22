@@ -198,11 +198,16 @@ fn start_gordo_deploy_job(
     let gordo_config = serde_json::to_string(&gordo.spec.config).unwrap();
 
     // Create the job.
-    let job_name = format!(
-        "gordo-deploy-job-{}-{}",
+    let mut job_name = format!(
+        "gordo-dpl-{}-{}",
         &gordo.metadata.name,
         &gordo.metadata.generation.map(|v| v as u32).unwrap_or(0)
     );
+    // Max length of name can only be 63 char in length, favoring the tail end of the name
+    if job_name.len() > 63 {
+        let len = job_name.len();
+        job_name = job_name[(len - 63)..len].to_owned();
+    }
 
     // Define the owner reference info
     let owner_ref = json!([
