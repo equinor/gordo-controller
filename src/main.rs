@@ -197,12 +197,13 @@ fn start_gordo_deploy_job(
 ) -> () {
     let gordo_config = serde_json::to_string(&gordo.spec.config).unwrap();
 
-    // Create the job.
-    let job_name = format!(
-        "gordo-deploy-job-{}-{}",
+    // Create the job name.
+    let job_name_suffix = format!(
+        "{}-{}",
         &gordo.metadata.name,
         &gordo.metadata.generation.map(|v| v as u32).unwrap_or(0)
     );
+    let job_name = deploy_job_name("gordo-dpl-", &job_name_suffix);
 
     // Define the owner reference info
     let owner_ref = json!([
@@ -309,4 +310,18 @@ pub(crate) fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namesp
             }),
         Err(e) => error!("Failed to list jobs: {:?}", e),
     }
+}
+
+/// Generate a name which is no greater than 63 chars in length
+/// always keeping the `prefix` and as much of `suffix` as possible, favoring its ending.
+pub fn deploy_job_name(prefix: &str, suffix: &str) -> String {
+    let suffix = suffix
+        .chars()
+        .rev()
+        .take(63 - prefix.len())
+        .collect::<Vec<char>>()
+        .iter()
+        .rev()
+        .collect::<String>();
+    format!("{}{}", prefix, suffix)
 }

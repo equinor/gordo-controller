@@ -4,7 +4,7 @@ use serde_json::Value;
 use serde_yaml;
 
 use crate::tests::helpers;
-use crate::{Gordo, GordoEnvironmentConfig};
+use crate::{deploy_job_name, Gordo, GordoEnvironmentConfig};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -85,4 +85,23 @@ fn test_minor_version() {
     assert_eq!(crate::minor_version("0.33.0"), Some(33));
     assert_eq!(crate::minor_version("0.31.12"), Some(31));
     assert_eq!(crate::minor_version("0.abc.def"), None);
+}
+
+#[test]
+fn test_deploy_job_name() {
+    let prefix = "gordo-dpl-";
+
+    // Basic
+    let suffix = "some-suffix";
+    assert_eq!(&deploy_job_name(prefix, suffix), "gordo-dpl-some-suffix");
+
+    // Really long suffix
+    let mut suffix = std::iter::repeat("a").take(100).collect::<String>();
+    suffix.push_str("required-suffix");
+    let result = deploy_job_name(prefix, &suffix);
+    assert_eq!(result.len(), 63);
+    assert_eq!(
+        &result,
+        "gordo-dpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaarequired-suffix"
+    );
 }
