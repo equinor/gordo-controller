@@ -64,7 +64,9 @@ fn main() -> ! {
     });
     let client = APIClient::new(kube_config);
 
-    let namespace = std::env::var("NAMESPACE").unwrap_or("kubeflow".into());
+    let namespace =
+        std::fs::read_to_string("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+            .expect("Failed to get namespace from system.");
 
     let resource: Api<Gordo> = Api::customResource(client.clone(), "gordos")
         .version("v1")
