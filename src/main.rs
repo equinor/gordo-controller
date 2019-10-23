@@ -7,6 +7,7 @@ use kube::{
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 #[cfg(test)]
 mod tests;
@@ -31,6 +32,8 @@ impl Default for GordoEnvironmentConfig {
 pub struct GordoSpec {
     #[serde(rename = "deploy-version")]
     deploy_version: String,
+    #[serde(rename = "deploy-environment")]
+    deploy_environment: Option<HashMap<String, String>>,
     config: Value,
 }
 
@@ -218,6 +221,20 @@ fn start_gordo_deploy_job(
         json!({"name": "MACHINE_CONFIG", "value": gordo_config})
     };
 
+    // Build up the gordo-deploy environment variables
+    let mut env = vec![
+        gordo_deploy_key_val,
+        json!({"name": "ARGO_SUBMIT", "value":  "true"}),
+        json!({"name": "WORKFLOW_GENERATOR_PROJECT_NAME", "value": &gordo.metadata.name}),
+        json!({"name": "WORKFLOW_GENERATOR_OWNER_REFERENCES", "value": owner_ref_as_string}),
+    ];
+    // push in any that were supplied by the Gordo.spec.gordo_environment mapping
+    gordo.spec.deploy_environment.as_ref().map(|environment| {
+        environment.iter().for_each(|(key, value)| {
+            env.push(json!({"name": key, "value": value}));
+        })
+    });
+
     // Job spec for launching this gordo config into a workflow
     let spec = json!({
         "apiVersion": "batch/v1",
@@ -238,12 +255,7 @@ fn start_gordo_deploy_job(
                     "containers": [{
                         "name": "gordo-deploy",
                         "image": &format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version),
-                        "env": [
-                            gordo_deploy_key_val,
-                            {"name": "ARGO_SUBMIT", "value":  "true"},
-                            {"name": "WORKFLOW_GENERATOR_PROJECT_NAME", "value": &gordo.metadata.name},
-                            {"name": "WORKFLOW_GENERATOR_OWNER_REFERENCES", "value": owner_ref_as_string}
-                        ]
+                        "env": env
                     }],
                     "restartPolicy": "Never"
                 }

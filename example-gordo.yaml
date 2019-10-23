@@ -6,6 +6,10 @@ metadata:
 
 spec:
   deploy-version: latest
+  deploy-environment:
+    WORKFLOW_GENERATOR_DOCKER_REGISTRY: docker.io
+    WORKFLOW_GENERATOR_DOCKER_REPOSITORY: equinor
+    WORKFLOW_GENERATOR_COMPONENTS_VERSION: latest
   config:
     machines:
       - dataset:
