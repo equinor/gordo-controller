@@ -255,7 +255,17 @@ fn start_gordo_deploy_job(
                     "containers": [{
                         "name": "gordo-deploy",
                         "image": &format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version),
-                        "env": env
+                        "env": env,
+                        "resources": {
+                            "limits": {
+                                "memory": "1000Mi",
+                                "cpu": "2000m"
+                            },
+                            "requests": {
+                                "memory": "500Mi",
+                                "cpu": "250m"
+                            }
+                        }
                     }],
                     "restartPolicy": "Never"
                 }
@@ -275,7 +285,7 @@ fn start_gordo_deploy_job(
 
     match jobs.create(&postparams, serialized_spec) {
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
-        Err(e) => error!("Failed to submit job with error: {:?}", e)
+        Err(e) => error!("Failed to submit job with error: {:?}", e),
     }
 
     // Update the status of this job
