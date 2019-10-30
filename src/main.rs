@@ -326,11 +326,26 @@ pub(crate) fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namesp
             .iter()
             .filter(|job| job.metadata.labels.get("gordoProjectName") == Some(&gordo.metadata.name))
             .for_each(|job| {
-                if let Err(err) = jobs.delete(&job.metadata.name, &DeleteParams::default()) {
-                    error!(
+                match jobs.delete(&job.metadata.name, &DeleteParams::default()) {
+                    Ok(_) => {
+                        info!(
+                            "Successfully requested to delete job: {}, waiting for it to die.",
+                            &job.metadata.name
+                        );
+
+                        // Keep trying to get the job, it will fail when it no longer exists.
+                        while let Ok(job) = jobs.get(&job.metadata.name) {
+                            info!(
+                                "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
+                                job.metadata.resourceVersion, job.metadata.generation
+                            );
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                        }
+                    }
+                    Err(err) => error!(
                         "Failed to delete old gordo job: '{}' with error: {:?}",
                         &job.metadata.name, err
-                    )
+                    ),
                 }
             }),
         Err(e) => error!("Failed to list jobs: {:?}", e),
