@@ -71,7 +71,7 @@ fn main() -> ! {
         .group("equinor.com")
         .within(&namespace);
 
-    let informer: Informer<Gordo> = Informer::new(resource.clone());
+    let informer: Informer<Gordo> = Informer::new(resource.clone()).init().unwrap();
 
     // On start up, get a list of all gordos, and start gordo-deploy jobs for each
     // which doesn't have a Submitted(revision) which doesn't match its current revision
@@ -79,6 +79,8 @@ fn main() -> ! {
     launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config);
 
     loop {
+        informer.reset().unwrap();
+
         // Update state changes
         informer
             .poll()
