@@ -130,7 +130,7 @@ fn main() -> ! {
                     // Remove any old jobs associated with this Gordo which has been deleted.
                     remove_gordo_deploy_jobs(&gordo, &client, &namespace);
                 }
-                WatchEvent::Error(e) => info!("Gordo resource error: {:?}", e),
+                WatchEvent::Error(e) => info!("Gordo resource error from k8s: {:?}", e),
             }
         }
     }
@@ -152,7 +152,10 @@ pub(crate) fn launch_waiting_gordo_workflows(
             if n_gordos == 0 {
                 info!("No waiting gordos need submitting.");
             } else {
-                info!("Found {} gordos, submitting them to gordo-deploy", n_gordos);
+                info!(
+                    "Found {} gordos, checking if any need submitting to gordo-deploy",
+                    n_gordos
+                );
                 gordos
                     .items
                     .iter()
@@ -172,6 +175,7 @@ pub(crate) fn launch_waiting_gordo_workflows(
                     })
                     .for_each(|gordo| {
                         // Submit this gordo resource.
+                        info!("Submitting waiting Gordo: {}", &gordo.metadata.name);
                         start_gordo_deploy_job(gordo, &client, &resource, &namespace, &env_config)
                     })
             }
