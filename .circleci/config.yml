@@ -94,10 +94,20 @@ jobs:
             sudo -E minikube start --vm-driver=none --cpus 2 --memory 2048
           name: Start minikube
 
-      - kube-orb/create-or-update-resource:
-          namespace: default
-          resource-file-path: gordo-crd.yaml
-          show-kubectl-command: true
+      - run:
+          name: Install Kustomize
+          command: |
+            sudo wget https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64 -O /usr/bin/kustomize
+            sudo chmod +x /usr/bin/kustomize
+
+      - run:
+          name: Build CRD
+          command: kustomize build k8s
+
+      - run:
+          name: Apply CRD to cluster
+          command: kubectl apply -k k8s -n default
+
       - run:
           command: kubectl get gordos
       - run:
