@@ -62,9 +62,11 @@ fn main() -> ! {
     let kube_config = config::load_kube_config().unwrap_or_else(|_| {
         config::incluster_config().expect("Failed to get local kube config and incluster config")
     });
-    let client = APIClient::new(kube_config);
 
-    let namespace = std::env::var("NAMESPACE").unwrap_or("kubeflow".into());
+    let namespace = kube_config.default_ns.to_owned();
+    info!("Got default namespace of: {}", &namespace);
+
+    let client = APIClient::new(kube_config);
 
     let resource: Api<Gordo> = Api::customResource(client.clone(), "gordos")
         .version("v1")
