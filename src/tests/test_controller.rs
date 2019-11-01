@@ -1,10 +1,8 @@
 use kube::api::{DeleteParams, ListParams, PostParams};
-use kube::{api::Api, client::APIClient, config};
-use serde_json::Value;
-use serde_yaml;
+use kube::{api::Api, config};
 
 use crate::tests::helpers;
-use crate::{deploy_job_name, Gordo, GordoEnvironmentConfig};
+use crate::{deploy_job::DeployJob, GordoEnvironmentConfig};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -93,12 +91,15 @@ fn test_deploy_job_name() {
 
     // Basic
     let suffix = "some-suffix";
-    assert_eq!(&deploy_job_name(prefix, suffix), "gordo-dpl-some-suffix");
+    assert_eq!(
+        &DeployJob::deploy_job_name(prefix, suffix),
+        "gordo-dpl-some-suffix"
+    );
 
     // Really long suffix
     let mut suffix = std::iter::repeat("a").take(100).collect::<String>();
     suffix.push_str("required-suffix");
-    let result = deploy_job_name(prefix, &suffix);
+    let result = DeployJob::deploy_job_name(prefix, &suffix);
     assert_eq!(result.len(), 63);
     assert_eq!(
         &result,
