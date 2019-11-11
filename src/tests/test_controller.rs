@@ -1,5 +1,6 @@
+use kube::api::Api;
 use kube::api::{DeleteParams, ListParams, PostParams};
-use kube::{api::Api, config};
+use tokio_test::block_on;
 
 use crate::tests::helpers;
 use crate::{deploy_job::DeployJob, GordoEnvironmentConfig};
@@ -7,75 +8,120 @@ use crate::{deploy_job::DeployJob, GordoEnvironmentConfig};
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
 fn test_create_gordo() {
-    let client = helpers::client();
-    let gordos = helpers::gordo_custom_resource_api(client);
+    block_on(async {
+        let client = helpers::client().await;
+        let gordos = helpers::gordo_custom_resource_api(client);
 
-    // Delete any gordos
-    helpers::remove_gordos(&gordos);
+        // Delete any gordos
+        helpers::remove_gordos(&gordos).await;
 
-    // Ensure there are no Gordos
-    assert_eq!(gordos.list(&ListParams::default()).unwrap().items.len(), 0);
+        // Ensure there are no Gordos
+        assert_eq!(
+            gordos
+                .list(&ListParams::default())
+                .await
+                .unwrap()
+                .items
+                .len(),
+            0
+        );
 
-    // Apply the `gordo-example.yaml` file
-    let config = helpers::gordo_example_config();
-    let new_gordo =
-        match gordos.create(&PostParams::default(), serde_json::to_vec(&config).unwrap()) {
+        // Apply the `gordo-example.yaml` file
+        let config = helpers::gordo_example_config();
+        let new_gordo = match gordos
+            .create(&PostParams::default(), serde_json::to_vec(&config).unwrap())
+            .await
+        {
             Ok(new_gordo) => new_gordo,
             Err(err) => panic!("Failed to create gordo with error: {:?}", err),
         };
 
-    // Ensure there are now one gordos
-    assert_eq!(gordos.list(&ListParams::default()).unwrap().items.len(), 1);
+        // Ensure there are now one gordos
+        assert_eq!(
+            gordos
+                .list(&ListParams::default())
+                .await
+                .unwrap()
+                .items
+                .len(),
+            1
+        );
 
-    // Delete the gordo
-    if let Err(err) = gordos.delete(&new_gordo.metadata.name, &DeleteParams::default()) {
-        panic!("Failed to delete gordo with error: {:?}", err);
-    }
+        // Delete the gordo
+        if let Err(err) = gordos
+            .delete(&new_gordo.metadata.name, &DeleteParams::default())
+            .await
+        {
+            panic!("Failed to delete gordo with error: {:?}", err);
+        }
 
-    // Back to zero gordos
-    assert_eq!(gordos.list(&ListParams::default()).unwrap().items.len(), 0);
+        // Back to zero gordos
+        assert_eq!(
+            gordos
+                .list(&ListParams::default())
+                .await
+                .unwrap()
+                .items
+                .len(),
+            0
+        );
+    })
 }
 
 // Given an applied Gordo config which hasn't been submited to gordo-deploy job
 // it should be able to pick those and submit them to gordo-deploy
 #[test]
 fn test_launch_waiting_gordos() {
-    let client = helpers::client();
-    let gordos = helpers::gordo_custom_resource_api(client.clone());
+    block_on(async {
+        let client = helpers::client().await;
+        let gordos = helpers::gordo_custom_resource_api(client.clone());
 
-    // Delete any gordos
-    helpers::remove_gordos(&gordos);
+        // Delete any gordos
+        helpers::remove_gordos(&gordos).await;
 
-    // Apply the `gordo-example.yaml` file
-    let config = helpers::gordo_example_config();
-    let new_gordo =
-        match gordos.create(&PostParams::default(), serde_json::to_vec(&config).unwrap()) {
+        // Apply the `gordo-example.yaml` file
+        let config = helpers::gordo_example_config();
+        let new_gordo = match gordos
+            .create(&PostParams::default(), serde_json::to_vec(&config).unwrap())
+            .await
+        {
             Ok(new_gordo) => new_gordo,
             Err(err) => panic!("Failed to create gordo with error: {:?}", err),
         };
 
-    // No jobs waiting after applying config.
-    let jobs = Api::v1Job(client.clone()).within("default");
-    assert_eq!(jobs.list(&ListParams::default()).unwrap().items.len(), 0);
+        // No jobs waiting after applying config.
+        let jobs = Api::v1Job(client.clone()).within("default");
+        assert_eq!(
+            jobs.list(&ListParams::default()).await.unwrap().items.len(),
+            0
+        );
 
-    // Launch the waiting config.
-    let resource = helpers::gordo_custom_resource_api(client.clone());
-    crate::launch_waiting_gordo_workflows(
-        &resource,
-        &client,
-        "default",
-        &GordoEnvironmentConfig::default(),
-    );
+        // Launch the waiting config.
+        let resource = helpers::gordo_custom_resource_api(client.clone());
+        crate::launch_waiting_gordo_workflows(
+            &resource,
+            &client,
+            "default",
+            &GordoEnvironmentConfig::default(),
+        )
+        .await;
 
-    // Now we should have one job.
-    assert_eq!(jobs.list(&ListParams::default()).unwrap().items.len(), 1);
+        // Now we should have one job.
+        assert_eq!(
+            jobs.list(&ListParams::default()).await.unwrap().items.len(),
+            1
+        );
 
-    // Delete all jobs
-    crate::remove_gordo_deploy_jobs(&new_gordo, &client, "default");
+        // Delete all jobs
+        crate::remove_gordo_deploy_jobs(&new_gordo, &client, "default").await;
 
-    // And finally, we should have zero jobs
-    std::thread::sleep(std::time::Duration::from_secs(5)); // Time for step above to finish
-    assert_eq!(jobs.list(&ListParams::default()).unwrap().items.len(), 0);
+        // And finally, we should have zero jobs
+        std::thread::sleep(std::time::Duration::from_secs(5)); // Time for step above to finish
+        assert_eq!(
+            jobs.list(&ListParams::default()).await.unwrap().items.len(),
+            0
+        );
+    })
 }
 
 #[test]
