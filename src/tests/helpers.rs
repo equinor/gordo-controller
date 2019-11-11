@@ -6,8 +6,8 @@ use serde_yaml;
 use crate::Gordo;
 
 // Get the `APIClient` using current kube config
-pub fn client() -> APIClient {
-    let config = config::load_kube_config().unwrap_or_else(|_| {
+pub async fn client() -> APIClient {
+    let config = config::load_kube_config().await.unwrap_or_else(|_| {
         config::incluster_config().expect("Failed to get local kube config and incluster config")
     });
     APIClient::new(config)
@@ -23,17 +23,19 @@ pub fn gordo_custom_resource_api(client: APIClient) -> Api<Gordo> {
 }
 
 // Remove _all_ gordos.
-pub fn remove_gordos(gordos: &Api<Gordo>) {
-    gordos
+pub async fn remove_gordos(gordos: &Api<Gordo>) {
+    for gordo in gordos
         .list(&ListParams::default())
+        .await
         .unwrap()
         .items
         .iter()
-        .for_each(|gordo| {
-            gordos
-                .delete(&gordo.metadata.name, &DeleteParams::default())
-                .unwrap();
-        });
+    {
+        gordos
+            .delete(&gordo.metadata.name, &DeleteParams::default())
+            .await
+            .unwrap();
+    }
 }
 
 // Get the repo's example `Gordo` config file
