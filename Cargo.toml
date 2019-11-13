@@ -1,6 +1,6 @@
 [package]
 name = "gordo-controller"
-version = "0.1.8"
+version = "0.2.0"
 authors = ["Miles Granger <miles59923@gmail.com>"]
 edition = "2018"
 
