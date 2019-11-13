@@ -85,7 +85,6 @@ async fn main() -> ! {
     launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config).await;
 
     loop {
-        informer.reset().await.unwrap();
 
         // Update state changes
         informer
