@@ -59,6 +59,7 @@ impl DeployJob {
                 }
             },
             "spec": {
+                "ttlSecondsAfterFinished": 604800,  // 1 week in seconds
                 "template": {
                     "metadata": {
                         "name": &job_name
