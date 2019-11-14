@@ -16,15 +16,7 @@ fn test_create_gordo() {
         helpers::remove_gordos(&gordos).await;
 
         // Ensure there are no Gordos
-        assert_eq!(
-            gordos
-                .list(&ListParams::default())
-                .await
-                .unwrap()
-                .items
-                .len(),
-            0
-        );
+        assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
 
         // Apply the `gordo-example.yaml` file
         let config = helpers::gordo_example_config();
@@ -37,34 +29,15 @@ fn test_create_gordo() {
         };
 
         // Ensure there are now one gordos
-        assert_eq!(
-            gordos
-                .list(&ListParams::default())
-                .await
-                .unwrap()
-                .items
-                .len(),
-            1
-        );
+        assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 1);
 
         // Delete the gordo
-        if let Err(err) = gordos
-            .delete(&new_gordo.metadata.name, &DeleteParams::default())
-            .await
-        {
+        if let Err(err) = gordos.delete(&new_gordo.metadata.name, &DeleteParams::default()).await {
             panic!("Failed to delete gordo with error: {:?}", err);
         }
 
         // Back to zero gordos
-        assert_eq!(
-            gordos
-                .list(&ListParams::default())
-                .await
-                .unwrap()
-                .items
-                .len(),
-            0
-        );
+        assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
     })
 }
 
@@ -91,36 +64,21 @@ fn test_launch_waiting_gordos() {
 
         // No jobs waiting after applying config.
         let jobs = Api::v1Job(client.clone()).within("default");
-        assert_eq!(
-            jobs.list(&ListParams::default()).await.unwrap().items.len(),
-            0
-        );
+        assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 0);
 
         // Launch the waiting config.
         let resource = helpers::gordo_custom_resource_api(client.clone());
-        crate::launch_waiting_gordo_workflows(
-            &resource,
-            &client,
-            "default",
-            &GordoEnvironmentConfig::default(),
-        )
-        .await;
+        crate::launch_waiting_gordo_workflows(&resource, &client, "default", &GordoEnvironmentConfig::default()).await;
 
         // Now we should have one job.
-        assert_eq!(
-            jobs.list(&ListParams::default()).await.unwrap().items.len(),
-            1
-        );
+        assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 1);
 
         // Delete all jobs
         crate::remove_gordo_deploy_jobs(&new_gordo, &client, "default").await;
 
         // And finally, we should have zero jobs
         std::thread::sleep(std::time::Duration::from_secs(5)); // Time for step above to finish
-        assert_eq!(
-            jobs.list(&ListParams::default()).await.unwrap().items.len(),
-            0
-        );
+        assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 0);
     })
 }
 
@@ -137,10 +95,7 @@ fn test_deploy_job_name() {
 
     // Basic
     let suffix = "some-suffix";
-    assert_eq!(
-        &DeployJob::deploy_job_name(prefix, suffix),
-        "gordo-dpl-some-suffix"
-    );
+    assert_eq!(&DeployJob::deploy_job_name(prefix, suffix), "gordo-dpl-some-suffix");
 
     // Really long suffix
     let mut suffix = std::iter::repeat("a").take(100).collect::<String>();
