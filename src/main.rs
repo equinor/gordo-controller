@@ -63,9 +63,9 @@ async fn main() -> ! {
         GordoEnvironmentConfig::default()
     });
 
-    let kube_config = config::load_kube_config().await.unwrap_or_else(|_| {
-        config::incluster_config().expect("Failed to get local kube config and incluster config")
-    });
+    let kube_config = config::load_kube_config()
+        .await
+        .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"));
 
     let namespace = kube_config.default_ns.to_owned();
     info!("Got default namespace of: {}", &namespace);
@@ -85,7 +85,6 @@ async fn main() -> ! {
     launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config).await;
 
     loop {
-
         // Update state changes
         informer
             .poll()
@@ -95,8 +94,7 @@ async fn main() -> ! {
         while let Some(event) = informer.pop() {
             match event {
                 WatchEvent::Added(gordo) => {
-                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config)
-                        .await;
+                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
                 }
                 WatchEvent::Modified(gordo) => {
                     info!(
@@ -109,14 +107,8 @@ async fn main() -> ! {
                                 GordoStatus::Submitted(ref generation) => {
                                     // If it's submitted, we only want to launch the job if the GenerationNumber has changed.
                                     if generation != &gordo.metadata.generation.map(|v| v as u32) {
-                                        start_gordo_deploy_job(
-                                            &gordo,
-                                            &client,
-                                            &resource,
-                                            &namespace,
-                                            &env_config,
-                                        )
-                                        .await;
+                                        start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config)
+                                            .await;
                                     }
                                 }
                             }
@@ -124,14 +116,7 @@ async fn main() -> ! {
 
                         // No Gordo status
                         None => {
-                            start_gordo_deploy_job(
-                                &gordo,
-                                &client,
-                                &resource,
-                                &namespace,
-                                &env_config,
-                            )
-                            .await;
+                            start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
                         }
                     }
                 }
@@ -189,13 +174,7 @@ pub(crate) async fn launch_waiting_gordo_workflows(
                         .map(|gordo| {
                             // Submit this gordo resource.
                             info!("Submitting waiting Gordo: {}", &gordo.metadata.name);
-                            start_gordo_deploy_job(
-                                gordo,
-                                &client,
-                                &resource,
-                                &namespace,
-                                &env_config,
-                            )
+                            start_gordo_deploy_job(gordo, &client, &resource, &namespace, &env_config)
                         }),
                 )
                 .await;
@@ -262,52 +241,45 @@ async fn start_gordo_deploy_job(
 }
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
-pub(crate) async fn remove_gordo_deploy_jobs(
-    gordo: &Gordo,
-    client: &APIClient,
-    namespace: &str,
-) -> () {
-    info!(
-        "Removing any gordo-deploy jobs for Gordo: '{}'",
-        &gordo.metadata.name
-    );
+pub(crate) async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {
+    info!("Removing any gordo-deploy jobs for Gordo: '{}'", &gordo.metadata.name);
 
     let jobs = Api::v1Job(client.clone()).within(&namespace);
     match jobs.list(&ListParams::default()).await {
         Ok(job_list) => {
-            join_all(job_list
-                .items
-                .into_iter()
-                .filter(|job| {
-                    job.metadata.labels.get("gordoProjectName") == Some(&gordo.metadata.name)
-                })
-                .map(|job| async move {
-                    let jobs_api = Api::v1Job(client.clone()).within(&namespace);
-                    match jobs_api
-                        .delete(&job.metadata.name, &DeleteParams::default())
-                        .await
-                    {
-                        Ok(_) => {
-                            info!(
-                                "Successfully requested to delete job: {}, waiting for it to die.",
-                                &job.metadata.name
-                            );
+            join_all(
+                job_list
+                    .items
+                    .into_iter()
+                    .filter(|job| job.metadata.labels.get("gordoProjectName") == Some(&gordo.metadata.name))
+                    .map(|job| {
+                        async move {
+                            let jobs_api = Api::v1Job(client.clone()).within(&namespace);
+                            match jobs_api.delete(&job.metadata.name, &DeleteParams::default()).await {
+                                Ok(_) => {
+                                    info!(
+                                        "Successfully requested to delete job: {}, waiting for it to die.",
+                                        &job.metadata.name
+                                    );
 
-                            // Keep trying to get the job, it will fail when it no longer exists.
-                            while let Ok(job) = jobs_api.get(&job.metadata.name).await {
-                                info!(
+                                    // Keep trying to get the job, it will fail when it no longer exists.
+                                    while let Ok(job) = jobs_api.get(&job.metadata.name).await {
+                                        info!(
                                     "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
                                     job.metadata.resourceVersion, job.metadata.generation
                                 );
-                                std::thread::sleep(std::time::Duration::from_secs(1));
+                                        std::thread::sleep(std::time::Duration::from_secs(1));
+                                    }
+                                }
+                                Err(err) => error!(
+                                    "Failed to delete old gordo job: '{}' with error: {:?}",
+                                    &job.metadata.name, err
+                                ),
                             }
                         }
-                        Err(err) => error!(
-                            "Failed to delete old gordo job: '{}' with error: {:?}",
-                            &job.metadata.name, err
-                        ),
-                    }
-            })).await;
+                    }),
+            )
+            .await;
         }
         Err(e) => error!("Failed to list jobs: {:?}", e),
     }
