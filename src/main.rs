@@ -77,10 +77,9 @@ async fn main() -> ! {
 
         while let Some(event) = model_informer.pop() {
             match event {
-                WatchEvent::Added(model) => info!("New gordo model: {:?} - {:?}", model.metadata.name, model.status),
-                WatchEvent::Modified(model) => {
-                    info!("Modified gordo model: {:?} - {:?}", model.metadata.name, model.status);
-                    let status = json!({"status": ModelStatus::default()});
+                WatchEvent::Added(model) => {
+                    info!("New gordo model: {:?} - {:?}", model.metadata.name, model.status);
+                    let status = json!({ "status": ModelStatus::default() });
                     model_resource
                         .patch_status(
                             &model.metadata.name,
@@ -89,6 +88,9 @@ async fn main() -> ! {
                         )
                         .await
                         .expect("Failed to patch model status!");
+                }
+                WatchEvent::Modified(model) => {
+                    info!("Modified gordo model: {:?} - {:?}", model.metadata.name, model.status);
                 }
                 WatchEvent::Deleted(model) => {
                     info!("Deleted gordo model: {:?} - {:?}", model.metadata.name, model.status)
