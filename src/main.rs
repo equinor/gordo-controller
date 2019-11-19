@@ -16,6 +16,7 @@ mod deploy_job;
 mod tests;
 
 use crate::crd::gordo::{Gordo, GordoStatus};
+use crate::crd::model::Model;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
@@ -54,7 +55,13 @@ async fn main() -> ! {
         .group("equinor.com")
         .within(&namespace);
 
-    let informer: Informer<Gordo> = Informer::new(resource.clone()).init().await.unwrap();
+    let gordo_informer: Informer<Gordo> = Informer::new(resource.clone()).init().await.unwrap();
+
+    let model_resource: Api<Model> = Api::customResource(client.clone(), "models")
+        .version("v1")
+        .group("equinor.com")
+        .within(&namespace);
+    let model_informer: Informer<Model> = Informer::new(model_resource).init().await.unwrap();
 
     // On start up, get a list of all gordos, and start gordo-deploy jobs for each
     // which doesn't have a Submitted(revision) which doesn't match its current revision
@@ -62,13 +69,28 @@ async fn main() -> ! {
     launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config).await;
 
     loop {
+        // updates to models
+        model_informer
+            .poll()
+            .await
+            .unwrap_or_else(|e| panic!("Failed to poll model informer: {:?}", e));
+
+        while let Some(event) = model_informer.pop() {
+            match event {
+                WatchEvent::Added(model) => info!("New gordo model: {:?}", model.metadata.name),
+                WatchEvent::Modified(model) => info!("Modified gordo model: {:?}", model.metadata.name),
+                WatchEvent::Deleted(model) => info!("Deleted gordo model: {:?}", model.metadata.name),
+                WatchEvent::Error(err) => error!("Watch event error for model informer: {:?}", err),
+            }
+        }
+
         // Update state changes
-        informer
+        gordo_informer
             .poll()
             .await
             .unwrap_or_else(|e| panic!("Failed to poll: {:?}", e));
 
-        while let Some(event) = informer.pop() {
+        while let Some(event) = gordo_informer.pop() {
             match event {
                 WatchEvent::Added(gordo) => {
                     start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
