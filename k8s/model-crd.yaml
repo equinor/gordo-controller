@@ -3,6 +3,11 @@ kind: CustomResourceDefinition
 metadata:
   name: models.equinor.com
 spec:
+  additionalPrinterColumns:
+    - JSONPath: .status
+      description: Current status of the model
+      name: ModelStatus
+      type: string
   group: equinor.com
   names:
     kind: Model

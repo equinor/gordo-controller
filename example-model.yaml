@@ -9,7 +9,7 @@ spec:
   config:
     dataset:
       tags:
-        - TAG-1
+        - TAG-0
         - TAG-2
         - TAG-3
       target_tag_list:

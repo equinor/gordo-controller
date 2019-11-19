@@ -16,7 +16,7 @@ mod deploy_job;
 mod tests;
 
 use crate::crd::gordo::{Gordo, GordoStatus};
-use crate::crd::model::Model;
+use crate::crd::model::{Model, ModelStatus};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
@@ -61,7 +61,7 @@ async fn main() -> ! {
         .version("v1")
         .group("equinor.com")
         .within(&namespace);
-    let model_informer: Informer<Model> = Informer::new(model_resource).init().await.unwrap();
+    let model_informer: Informer<Model> = Informer::new(model_resource.clone()).init().await.unwrap();
 
     // On start up, get a list of all gordos, and start gordo-deploy jobs for each
     // which doesn't have a Submitted(revision) which doesn't match its current revision
@@ -77,10 +77,26 @@ async fn main() -> ! {
 
         while let Some(event) = model_informer.pop() {
             match event {
-                WatchEvent::Added(model) => info!("New gordo model: {:?}", model.metadata.name),
-                WatchEvent::Modified(model) => info!("Modified gordo model: {:?}", model.metadata.name),
-                WatchEvent::Deleted(model) => info!("Deleted gordo model: {:?}", model.metadata.name),
-                WatchEvent::Error(err) => error!("Watch event error for model informer: {:?}", err),
+                WatchEvent::Added(model) => info!("New gordo model: {:?} - {:?}", model.metadata.name, model.status),
+                WatchEvent::Modified(model) => {
+                    info!("Modified gordo model: {:?} - {:?}", model.metadata.name, model.status);
+                    let status = json!({"status": ModelStatus::default()});
+                    model_resource
+                        .patch_status(
+                            &model.metadata.name,
+                            &PatchParams::default(),
+                            serde_json::to_vec(&status).unwrap(),
+                        )
+                        .await
+                        .expect("Failed to patch model status!");
+                }
+                WatchEvent::Deleted(model) => {
+                    info!("Deleted gordo model: {:?} - {:?}", model.metadata.name, model.status)
+                }
+                WatchEvent::Error(err) => {
+                    error!("Watch event error for model informer: {:?}", err);
+                    model_informer.reset().await.unwrap();
+                }
             }
         }
 
@@ -125,7 +141,10 @@ async fn main() -> ! {
                     // Remove any old jobs associated with this Gordo which has been deleted.
                     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
                 }
-                WatchEvent::Error(e) => info!("Gordo resource error from k8s: {:?}", e),
+                WatchEvent::Error(e) => {
+                    info!("Gordo resource error from k8s: {:?}", e);
+                    gordo_informer.reset().await.unwrap();
+                }
             }
         }
     }
