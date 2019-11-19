@@ -2,21 +2,20 @@ use crate::deploy_job::DeployJob;
 use futures::future::join_all;
 use kube::api::{DeleteParams, Informer, ListParams, PatchParams};
 use kube::{
-    api::{Api, Object, PostParams, WatchEvent},
+    api::{Api, PostParams, WatchEvent},
     client::APIClient,
     config,
 };
 use log::{error, info};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use std::collections::HashMap;
+use serde::Deserialize;
+use serde_json::json;
 
+mod crd;
 mod deploy_job;
 #[cfg(test)]
 mod tests;
 
-type GenerationNumber = Option<u32>;
-type Gordo = Object<GordoSpec, GordoStatus>;
+use crate::crd::gordo::{Gordo, GordoStatus};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
@@ -27,28 +26,6 @@ impl Default for GordoEnvironmentConfig {
         GordoEnvironmentConfig {
             deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
         }
-    }
-}
-
-/// Represents the 'spec' field of a Gordo resource
-#[derive(Serialize, Deserialize, Clone)]
-pub struct GordoSpec {
-    #[serde(rename = "deploy-version")]
-    deploy_version: String,
-    #[serde(rename = "deploy-environment")]
-    deploy_environment: Option<HashMap<String, String>>,
-    config: Value,
-}
-
-/// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum GordoStatus {
-    Submitted(GenerationNumber),
-}
-
-impl Default for GordoStatus {
-    fn default() -> GordoStatus {
-        GordoStatus::Submitted(None)
     }
 }
 
