@@ -1,0 +1,46 @@
+apiVersion: equinor.com/v1
+kind: Model
+metadata:
+  name: gordo-model-name
+spec:
+
+  gordo-version: 0.40.0
+
+  config:
+    dataset:
+      tags:
+        - TAG-1
+        - TAG-2
+        - TAG-3
+      target_tag_list:
+        - TAG-4
+        - TAG-5
+        - TAG-6
+      train_end_date: '2019-03-01T00:00:00+00:20'
+      train_start_date: '2019-01-01T00:00:00+00:00'
+      row_filter: "(`TAG-1` > 30) & (`TAG-1` < 40)"
+      type: TimeSeriesDataset
+    metadata:
+      information: 'Use row filtering and dropping the column inside the pipeline'
+    evaluation:
+      seed: 1234
+      metrics:
+        - r2_score
+    model:
+      gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
+        base_estimator:
+          sklearn.compose.TransformedTargetRegressor:
+            transformer: sklearn.preprocessing.data.MinMaxScaler
+            regressor:
+              sklearn.pipeline.Pipeline:
+                steps:
+                  - sklearn.compose.ColumnTransformer:
+                      transformers:
+                        - - dropper            # Name of this transformer
+                          - drop               # Action to perform
+                          - TAG-1              # Column to apply this action to.
+                      remainder: passthrough   # What do do with the rest
+                  - sklearn.preprocessing.data.MinMaxScaler
+                  - gordo_components.model.models.KerasAutoEncoder:
+                      kind: feedforward_hourglass
+    name: rowfilter-drop-column-ff
