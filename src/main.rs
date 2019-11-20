@@ -31,7 +31,7 @@ impl Default for GordoEnvironmentConfig {
 }
 
 /// Do what needs to be done with a model event
-async fn handle_model_event(event: WatchEvent<Model>, resource: &Api<Model>) {
+async fn handle_model_event(event: WatchEvent<Model>, resource: &Api<Model>) -> Result<(), kube::ApiError> {
     match event {
         WatchEvent::Added(model) => {
             info!("New gordo model: {:?} - {:?}", model.metadata.name, model.status);
@@ -49,11 +49,9 @@ async fn handle_model_event(event: WatchEvent<Model>, resource: &Api<Model>) {
             info!("Modified gordo model: {:?} - {:?}", model.metadata.name, model.status);
         }
         WatchEvent::Deleted(model) => info!("Deleted gordo model: {:?} - {:?}", model.metadata.name, model.status),
-        WatchEvent::Error(err) => {
-            error!("Watch event error for model informer: {:?}", err);
-            //model_informer.reset().await.unwrap();
-        }
+        WatchEvent::Error(err) => return Err(err),
     }
+    Ok(())
 }
 
 #[tokio::main]
@@ -102,7 +100,10 @@ async fn main() -> ! {
             .unwrap_or_else(|e| panic!("Failed to poll model informer: {:?}", e));
 
         while let Some(event) = model_informer.pop() {
-            handle_model_event(event, &model_resource).await;
+            if let Err(err) = handle_model_event(event, &model_resource).await {
+                error!("Watch event error for model informer: {:?}", err);
+                model_informer.reset().await.unwrap();
+            };
         }
 
         // Update state changes
