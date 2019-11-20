@@ -30,6 +30,32 @@ impl Default for GordoEnvironmentConfig {
     }
 }
 
+/// Do what needs to be done with a model event
+async fn handle_model_event(event: WatchEvent<Model>, resource: &Api<Model>) {
+    match event {
+        WatchEvent::Added(model) => {
+            info!("New gordo model: {:?} - {:?}", model.metadata.name, model.status);
+            let status = json!({ "status": ModelStatus::default() });
+            resource
+                .patch_status(
+                    &model.metadata.name,
+                    &PatchParams::default(),
+                    serde_json::to_vec(&status).unwrap(),
+                )
+                .await
+                .expect("Failed to patch model status!");
+        }
+        WatchEvent::Modified(model) => {
+            info!("Modified gordo model: {:?} - {:?}", model.metadata.name, model.status);
+        }
+        WatchEvent::Deleted(model) => info!("Deleted gordo model: {:?} - {:?}", model.metadata.name, model.status),
+        WatchEvent::Error(err) => {
+            error!("Watch event error for model informer: {:?}", err);
+            //model_informer.reset().await.unwrap();
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> ! {
     std::env::set_var("RUST_LOG", "info,kube=info");
@@ -76,30 +102,7 @@ async fn main() -> ! {
             .unwrap_or_else(|e| panic!("Failed to poll model informer: {:?}", e));
 
         while let Some(event) = model_informer.pop() {
-            match event {
-                WatchEvent::Added(model) => {
-                    info!("New gordo model: {:?} - {:?}", model.metadata.name, model.status);
-                    let status = json!({ "status": ModelStatus::default() });
-                    model_resource
-                        .patch_status(
-                            &model.metadata.name,
-                            &PatchParams::default(),
-                            serde_json::to_vec(&status).unwrap(),
-                        )
-                        .await
-                        .expect("Failed to patch model status!");
-                }
-                WatchEvent::Modified(model) => {
-                    info!("Modified gordo model: {:?} - {:?}", model.metadata.name, model.status);
-                }
-                WatchEvent::Deleted(model) => {
-                    info!("Deleted gordo model: {:?} - {:?}", model.metadata.name, model.status)
-                }
-                WatchEvent::Error(err) => {
-                    error!("Watch event error for model informer: {:?}", err);
-                    model_informer.reset().await.unwrap();
-                }
-            }
+            handle_model_event(event, &model_resource).await;
         }
 
         // Update state changes
