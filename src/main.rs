@@ -119,12 +119,11 @@ async fn main() -> ! {
 
     let client = APIClient::new(kube_config);
 
-    let resource: Api<Gordo> = Api::customResource(client.clone(), "gordos")
+    let gordo_resource: Api<Gordo> = Api::customResource(client.clone(), "gordos")
         .version("v1")
         .group("equinor.com")
         .within(&namespace);
-
-    let gordo_informer: Informer<Gordo> = Informer::new(resource.clone()).init().await.unwrap();
+    let gordo_informer: Informer<Gordo> = Informer::new(gordo_resource.clone()).init().await.unwrap();
 
     let model_resource: Api<Model> = Api::customResource(client.clone(), "models")
         .version("v1")
@@ -135,7 +134,7 @@ async fn main() -> ! {
     // On start up, get a list of all gordos, and start gordo-deploy jobs for each
     // which doesn't have a Submitted(revision) which doesn't match its current revision
     // or otherwise hasn't been submitted at all.
-    launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config).await;
+    launch_waiting_gordo_workflows(&gordo_resource, &client, &namespace, &env_config).await;
 
     loop {
         // updates to models
@@ -158,7 +157,7 @@ async fn main() -> ! {
             .unwrap_or_else(|e| panic!("Failed to poll: {:?}", e));
 
         while let Some(event) = gordo_informer.pop() {
-            if let Err(err) = handle_gordo_event(event, &client, &resource, &namespace, &env_config).await {
+            if let Err(err) = handle_gordo_event(event, &client, &gordo_resource, &namespace, &env_config).await {
                 error!("Watch event error for gordo informer: {:?}", err);
                 gordo_informer.reset().await.unwrap();
             }
