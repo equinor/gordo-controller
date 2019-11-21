@@ -54,6 +54,51 @@ async fn handle_model_event(event: WatchEvent<Model>, resource: &Api<Model>) -> 
     Ok(())
 }
 
+async fn handle_gordo_event(
+    event: WatchEvent<Gordo>,
+    client: &APIClient,
+    resource: &Api<Gordo>,
+    namespace: &str,
+    env_config: &GordoEnvironmentConfig,
+) -> Result<(), kube::ApiError> {
+    match event {
+        WatchEvent::Added(gordo) => {
+            start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
+        }
+        WatchEvent::Modified(gordo) => {
+            info!(
+                "Gordo resource modified: {:?}, status is: {:?}",
+                &gordo.metadata.name, &gordo.status
+            );
+            match gordo.status {
+                Some(ref status) => {
+                    match status {
+                        GordoStatus::Submitted(ref generation) => {
+                            // If it's submitted, we only want to launch the job if the GenerationNumber has changed.
+                            if generation != &gordo.metadata.generation.map(|v| v as u32) {
+                                start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
+                            }
+                        }
+                    }
+                }
+
+                // No Gordo status
+                None => {
+                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
+                }
+            }
+        }
+        WatchEvent::Deleted(gordo) => {
+            info!("Gordo resource deleted: {:?}", gordo.metadata.name);
+
+            // Remove any old jobs associated with this Gordo which has been deleted.
+            remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
+        }
+        WatchEvent::Error(err) => return Err(err),
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> ! {
     std::env::set_var("RUST_LOG", "info,kube=info");
@@ -113,44 +158,9 @@ async fn main() -> ! {
             .unwrap_or_else(|e| panic!("Failed to poll: {:?}", e));
 
         while let Some(event) = gordo_informer.pop() {
-            match event {
-                WatchEvent::Added(gordo) => {
-                    start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
-                }
-                WatchEvent::Modified(gordo) => {
-                    info!(
-                        "Gordo resource modified: {:?}, status is: {:?}",
-                        &gordo.metadata.name, &gordo.status
-                    );
-                    match gordo.status {
-                        Some(ref status) => {
-                            match status {
-                                GordoStatus::Submitted(ref generation) => {
-                                    // If it's submitted, we only want to launch the job if the GenerationNumber has changed.
-                                    if generation != &gordo.metadata.generation.map(|v| v as u32) {
-                                        start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config)
-                                            .await;
-                                    }
-                                }
-                            }
-                        }
-
-                        // No Gordo status
-                        None => {
-                            start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
-                        }
-                    }
-                }
-                WatchEvent::Deleted(gordo) => {
-                    info!("Gordo resource deleted: {:?}", gordo.metadata.name);
-
-                    // Remove any old jobs associated with this Gordo which has been deleted.
-                    remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
-                }
-                WatchEvent::Error(e) => {
-                    info!("Gordo resource error from k8s: {:?}", e);
-                    gordo_informer.reset().await.unwrap();
-                }
+            if let Err(err) = handle_gordo_event(event, &client, &resource, &namespace, &env_config).await {
+                error!("Watch event error for gordo informer: {:?}", err);
+                gordo_informer.reset().await.unwrap();
             }
         }
     }
