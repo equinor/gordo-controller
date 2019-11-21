@@ -84,6 +84,8 @@ async fn main() -> ! {
     // or otherwise hasn't been submitted at all.
     launch_waiting_gordo_workflows(&resource, &client, &namespace, &env_config).await;
 
+    let mut outdated_version = false;
+
     loop {
         // Update state changes
         informer
@@ -126,8 +128,17 @@ async fn main() -> ! {
                     // Remove any old jobs associated with this Gordo which has been deleted.
                     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
                 }
-                WatchEvent::Error(e) => info!("Gordo resource error from k8s: {:?}", e),
+                WatchEvent::Error(e) => {
+                    error!("Gordo resource error from k8s: {:?}", e);
+                    outdated_version = true;
+                }
             }
+        }
+
+        // Update the informer version after emptying the queue if watch event error encountered.
+        if outdated_version {
+            informer.reset().await.unwrap();
+            outdated_version = false;
         }
     }
 }
