@@ -1,7 +1,7 @@
+use futures::future::join;
 use kube::{client::APIClient, config};
-use log::{error};
+use log::error;
 use serde::Deserialize;
-use std::thread;
 
 mod crd;
 mod deploy_job;
@@ -10,7 +10,6 @@ mod tests;
 
 use crate::crd::gordo::Gordo;
 use crate::deploy_job::DeployJob;
-use kube::config::Configuration;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
@@ -24,9 +23,11 @@ impl Default for GordoEnvironmentConfig {
     }
 }
 
-/// Load up current environment and kube configs
-async fn configs() -> (GordoEnvironmentConfig, Configuration) {
-    // Load environment variables
+#[tokio::main]
+async fn main() -> () {
+    std::env::set_var("RUST_LOG", "info,kube=info");
+    env_logger::init();
+
     let env_config = envy::from_env::<GordoEnvironmentConfig>().unwrap_or_else(|e| {
         error!("Failed to load environment config, using defaults: {:?}", e);
         GordoEnvironmentConfig::default()
@@ -36,38 +37,14 @@ async fn configs() -> (GordoEnvironmentConfig, Configuration) {
         .await
         .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"));
 
-    (env_config, kube_config)
-}
+    let namespace = kube_config.default_ns.to_owned();
+    let client = APIClient::new(kube_config);
 
-#[tokio::main]
-async fn main() -> () {
-    std::env::set_var("RUST_LOG", "info,kube=info");
-    env_logger::init();
-
-    // Thread for monitoring Gordo CRD
-    let gordo_thread = thread::spawn(|| {
-        async {
-            let (env_config, kube_config) = configs().await;
-            let namespace = kube_config.default_ns.to_owned();
-            let client = APIClient::new(kube_config);
-
-            crate::crd::gordo::monitor_gordos(&client, &namespace, &env_config).await
-        }
-    });
-
-    // Thread for watching Model CRD
-    let model_thread = thread::spawn(|| {
-        async {
-            let (env_config, kube_config) = configs().await;
-            let namespace = kube_config.default_ns.to_owned();
-            let client = APIClient::new(kube_config);
-
-            crate::crd::model::monitor_models(&client, &namespace, &env_config).await
-        }
-    });
-
-    gordo_thread.join().unwrap().await;
-    model_thread.join().unwrap().await;
+    join(
+        crate::crd::gordo::monitor_gordos(&client, &namespace, &env_config),
+        crate::crd::model::monitor_models(&client, &namespace, &env_config),
+    )
+    .await;
 }
 
 // Get a minor version from standard SemVer string
