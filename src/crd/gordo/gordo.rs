@@ -1,14 +1,14 @@
-use std::collections::HashMap;
 use futures::future::join_all;
 use kube::{
-    api::{Api, Object, PostParams, DeleteParams, ListParams, PatchParams},
+    api::{Api, DeleteParams, ListParams, Object, PatchParams, PostParams},
     client::APIClient,
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
+use std::collections::HashMap;
 
-use crate::{GordoEnvironmentConfig, DeployJob};
+use crate::{DeployJob, GordoEnvironmentConfig};
 
 pub type GenerationNumber = Option<u32>;
 pub type Gordo = Object<GordoSpec, GordoStatus>;
@@ -34,7 +34,6 @@ impl Default for GordoStatus {
         GordoStatus::Submitted(None)
     }
 }
-
 
 /// Look for and submit `Gordo`s which have a `GenerationNumber` different than what Kubernetes
 /// has set in its `metadata.generation`; meaning changes have been submitted to the resource but
@@ -81,13 +80,12 @@ pub(crate) async fn launch_waiting_gordo_workflows(
                             start_gordo_deploy_job(gordo, &client, &resource, &namespace, &env_config)
                         }),
                 )
-                    .await;
+                .await;
             }
         }
         Err(e) => error!("Unable to list previous gordos: {:?}", e),
     }
 }
-
 
 /// Start a gordo-deploy job using this `Gordo`.
 /// Will patch the status of the `Gordo` to reflect the current revision number
@@ -130,10 +128,10 @@ pub(crate) async fn start_gordo_deploy_job(
             serde_json::to_vec(&status).expect("Status was not serializable, should never happen."),
         )
         .await
-        {
-            Ok(o) => info!("Patched status: {:?}", o.status),
-            Err(e) => error!("Failed to patch status: {:?}", e),
-        };
+    {
+        Ok(o) => info!("Patched status: {:?}", o.status),
+        Err(e) => error!("Failed to patch status: {:?}", e),
+    };
 }
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
