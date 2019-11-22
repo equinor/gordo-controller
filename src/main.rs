@@ -48,7 +48,6 @@ async fn main() -> () {
     let gordo_thread = thread::spawn(|| {
         async {
             let (env_config, kube_config) = configs().await;
-
             let namespace = kube_config.default_ns.to_owned();
             let client = APIClient::new(kube_config);
 
@@ -59,9 +58,7 @@ async fn main() -> () {
     // Thread for watching Model CRD
     let model_thread = thread::spawn(|| {
         async {
-
             let (env_config, kube_config) = configs().await;
-
             let namespace = kube_config.default_ns.to_owned();
             let client = APIClient::new(kube_config);
 
