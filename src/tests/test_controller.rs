@@ -83,7 +83,7 @@ fn test_launch_waiting_gordos() {
         crate::crd::gordo::remove_gordo_deploy_jobs(&new_gordo, &client, "default").await;
 
         // And finally, we should have zero jobs
-        std::thread::sleep(std::time::Duration::from_secs(5)); // Time for step above to finish
+        std::thread::sleep(std::time::Duration::from_secs(8)); // Time for step above to finish
         assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 0);
     })
 }

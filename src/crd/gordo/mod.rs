@@ -63,8 +63,8 @@ async fn handle_gordo_event(
             );
             match gordo.status {
                 Some(ref status) => {
-                    match status {
-                        GordoStatus::Submitted(ref generation) => {
+                    match status.submission_status {
+                        GordoSubmissionStatus::Submitted(ref generation) => {
                             // If it's submitted, we only want to launch the job if the GenerationNumber has changed.
                             if generation != &gordo.metadata.generation.map(|v| v as u32) {
                                 crate::crd::gordo::start_gordo_deploy_job(

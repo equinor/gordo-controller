@@ -4,7 +4,11 @@ metadata:
   name: gordos.equinor.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.Submitted
+  - JSONPath: .status.n-models
+    description: Number of Models defined in this Gordo
+    name: Model-Count
+    type: integer
+  - JSONPath: .status.submission-status.Submitted
     description: Number of times this gordo has been submitted by gordo-deploy
     name: Submitted
     type: integer

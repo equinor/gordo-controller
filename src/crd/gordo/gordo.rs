@@ -20,18 +20,50 @@ pub struct GordoSpec {
     pub deploy_version: String,
     #[serde(rename = "deploy-environment")]
     pub deploy_environment: Option<HashMap<String, String>>,
-    pub config: Value,
+    pub config: GordoConfig,
+}
+
+/// The actual structure, so much as we need to parse, of a gordo config.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GordoConfig {
+    #[serde(alias = "machines")]
+    models: Vec<Value>,
+    #[serde(default)]
+    globals: Option<Value>,
+}
+
+impl GordoConfig {
+    pub fn n_models(&self) -> usize {
+        self.models.len()
+    }
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum GordoStatus {
-    Submitted(GenerationNumber),
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct GordoStatus {
+    #[serde(rename = "n-models", default)]
+    pub n_models: usize,
+    #[serde(rename = "submission-status", default)]
+    pub submission_status: GordoSubmissionStatus,
 }
 
-impl Default for GordoStatus {
-    fn default() -> GordoStatus {
-        GordoStatus::Submitted(None)
+impl From<&Gordo> for GordoStatus {
+    fn from(gordo: &Gordo) -> Self {
+        let submission_status = GordoSubmissionStatus::Submitted(gordo.metadata.generation.map(|v| v as u32));
+        Self {
+            submission_status,
+            n_models: gordo.spec.config.n_models(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum GordoSubmissionStatus {
+    Submitted(GenerationNumber),
+}
+impl Default for GordoSubmissionStatus {
+    fn default() -> GordoSubmissionStatus {
+        GordoSubmissionStatus::Submitted(None)
     }
 }
 
@@ -64,10 +96,10 @@ pub(crate) async fn launch_waiting_gordo_workflows(
                             // Determine if this gordo should be submitted to gordo-deploy
                             match &gordo.status {
                                 Some(status) => {
-                                    match status {
+                                    match status.submission_status {
                                         // Already submitted; only re-submit if the revision has changed from the one submitted.
-                                        GordoStatus::Submitted(revision) => {
-                                            revision != &gordo.metadata.generation.map(|v| v as u32)
+                                        GordoSubmissionStatus::Submitted(revision) => {
+                                            revision != gordo.metadata.generation.map(|v| v as u32)
                                         }
                                     }
                                 }
@@ -113,14 +145,13 @@ pub(crate) async fn start_gordo_deploy_job(
         Err(e) => error!("Failed to submit job with error: {:?}", e),
     }
 
+    let status = json!({ "status": GordoStatus::from(gordo) });
+
     // Update the status of this job
     info!(
-        "Setting status of this gordo '{:?}' to 'Submitted'",
-        &gordo.metadata.name
+        "Setting status of this gordo '{}' to '{:?}'",
+        &gordo.metadata.name, &status
     );
-    let status = json!({
-        "status": GordoStatus::Submitted(gordo.metadata.generation.map(|v| v as u32))
-    });
     match resource
         .patch_status(
             &gordo.metadata.name,
