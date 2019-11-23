@@ -3,7 +3,7 @@ use kube::{api::Api, client::APIClient, config};
 use serde_json::Value;
 use serde_yaml;
 
-use crate::Gordo;
+use crate::crd::gordo::Gordo;
 
 // Get the `APIClient` using current kube config
 pub async fn client() -> APIClient {

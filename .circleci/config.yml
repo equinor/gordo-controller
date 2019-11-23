@@ -110,6 +110,10 @@ jobs:
 
       - run:
           command: kubectl get gordos
+
+      - run:
+          command: kubectl get models
+
       - run:
           name: Rust Test
           command: cargo test -- --test-threads=1
