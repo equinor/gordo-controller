@@ -193,7 +193,7 @@ pub(crate) async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, 
                                             "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
                                             job.metadata.resourceVersion, job.metadata.generation
                                         );
-                                        std::thread::sleep(std::time::Duration::from_secs(1));
+                                        tokio::timer::delay_for(std::time::Duration::from_secs(1)).await;
                                     }
                                 }
                                 Err(err) => error!(
