@@ -33,9 +33,18 @@ pub struct GordoConfig {
 }
 
 impl GordoConfig {
+    /// Count of models defined in this config
     pub fn n_models(&self) -> usize {
         self.models.len()
     }
+}
+
+/// Load the `Gordo` custom resource API interface
+pub fn load_gordo_resource(client: &APIClient, namespace: &str) -> Api<Gordo> {
+    Api::customResource(client.clone(), "gordos")
+        .version("v1")
+        .group("equinor.com")
+        .within(&namespace)
 }
 
 /// Represents the possible 'status' of a Gordo resource
@@ -45,14 +54,18 @@ pub struct GordoStatus {
     pub n_models: usize,
     #[serde(rename = "submission-status", default)]
     pub submission_status: GordoSubmissionStatus,
+    #[serde(rename = "n-models-built", default)]
+    pub n_models_built: usize,
 }
 
 impl From<&Gordo> for GordoStatus {
     fn from(gordo: &Gordo) -> Self {
         let submission_status = GordoSubmissionStatus::Submitted(gordo.metadata.generation.map(|v| v as u32));
+        let gordo_status = gordo.status.clone().unwrap_or_default();
         Self {
             submission_status,
             n_models: gordo.spec.config.n_models(),
+            n_models_built: gordo_status.n_models_built,
         }
     }
 }

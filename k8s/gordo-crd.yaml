@@ -8,6 +8,10 @@ spec:
     description: Number of Models defined in this Gordo
     name: Model-Count
     type: integer
+  - JSONPath: .status.n-models-built
+    description: Number of Models currently built
+    name: Models-Built
+    type: integer
   - JSONPath: .status.submission-status.Submitted
     description: Number of times this gordo has been submitted by gordo-deploy
     name: Submitted

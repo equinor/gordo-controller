@@ -2,6 +2,7 @@ use kube::api::Api;
 use kube::api::{DeleteParams, ListParams, PostParams};
 use tokio_test::block_on;
 
+use crate::crd::gordo::load_gordo_resource;
 use crate::tests::helpers;
 use crate::{deploy_job::DeployJob, GordoEnvironmentConfig};
 
@@ -10,7 +11,7 @@ use crate::{deploy_job::DeployJob, GordoEnvironmentConfig};
 fn test_create_gordo() {
     block_on(async {
         let client = helpers::client().await;
-        let gordos = helpers::gordo_custom_resource_api(client);
+        let gordos = load_gordo_resource(&client, "default");
 
         // Delete any gordos
         helpers::remove_gordos(&gordos).await;
@@ -19,7 +20,7 @@ fn test_create_gordo() {
         assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
 
         // Apply the `gordo-example.yaml` file
-        let config = helpers::gordo_example_config();
+        let config = helpers::example_config("example-gordo.yaml");
         let new_gordo = match gordos
             .create(&PostParams::default(), serde_json::to_vec(&config).unwrap())
             .await
@@ -47,13 +48,13 @@ fn test_create_gordo() {
 fn test_launch_waiting_gordos() {
     block_on(async {
         let client = helpers::client().await;
-        let gordos = helpers::gordo_custom_resource_api(client.clone());
+        let gordos = load_gordo_resource(&client, "default");
 
         // Delete any gordos
         helpers::remove_gordos(&gordos).await;
 
         // Apply the `gordo-example.yaml` file
-        let config = helpers::gordo_example_config();
+        let config = helpers::example_config("example-gordo.yaml");
         let new_gordo = match gordos
             .create(&PostParams::default(), serde_json::to_vec(&config).unwrap())
             .await
@@ -67,7 +68,7 @@ fn test_launch_waiting_gordos() {
         assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 0);
 
         // Launch the waiting config.
-        let resource = helpers::gordo_custom_resource_api(client.clone());
+        let resource = load_gordo_resource(&client, "default");
         crate::crd::gordo::launch_waiting_gordo_workflows(
             &resource,
             &client,

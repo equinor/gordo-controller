@@ -2,6 +2,14 @@ apiVersion: equinor.com/v1
 kind: Model
 metadata:
   name: gordo-model-name
+  ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Gordo
+      name: test-project-name
+      uid: 123abc
+
 spec:
 
   gordo-version: 0.40.0
