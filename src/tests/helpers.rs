@@ -13,15 +13,6 @@ pub async fn client() -> APIClient {
     APIClient::new(config)
 }
 
-// Get an API to the Gordo custom resource
-pub fn gordo_custom_resource_api(client: APIClient) -> Api<Gordo> {
-    let gordos: Api<Gordo> = Api::customResource(client, "gordos")
-        .version("v1")
-        .group("equinor.com")
-        .within("default");
-    gordos
-}
-
 // Remove _all_ gordos.
 pub async fn remove_gordos(gordos: &Api<Gordo>) {
     for gordo in gordos.list(&ListParams::default()).await.unwrap().items.iter() {
@@ -33,8 +24,8 @@ pub async fn remove_gordos(gordos: &Api<Gordo>) {
 }
 
 // Get the repo's example `Gordo` config file
-pub fn gordo_example_config() -> Value {
-    let config_str = std::fs::read_to_string(format!("{}/example-gordo.yaml", env!("CARGO_MANIFEST_DIR")))
+pub fn example_config(name: &str) -> Value {
+    let config_str = std::fs::read_to_string(format!("{}/{}", env!("CARGO_MANIFEST_DIR"), name))
         .expect("Failed to read config file");
     serde_yaml::from_str(&config_str).expect("Unable to parse config file into yaml")
 }

@@ -10,10 +10,7 @@ pub mod gordo;
 pub use gordo::*;
 
 pub async fn monitor_gordos(client: &APIClient, namespace: &str, env_config: &GordoEnvironmentConfig) -> ! {
-    let gordo_resource: Api<Gordo> = Api::customResource(client.clone(), "gordos")
-        .version("v1")
-        .group("equinor.com")
-        .within(&namespace);
+    let gordo_resource: Api<Gordo> = load_gordo_resource(&client, &namespace);
     let gordo_informer: Informer<Gordo> = Informer::new(gordo_resource.clone()).init().await.unwrap();
 
     // On start up, get a list of all gordos, and start gordo-deploy jobs for each

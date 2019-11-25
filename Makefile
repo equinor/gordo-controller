@@ -2,6 +2,7 @@ export DOCKER_REGISTRY := docker.io
 GORDO_CONTROLLER_IMG_NAME := equinor/gordo-controller
 
 test:
+	kubectl config use-context minikube
 	cargo test -- --test-threads=1
 
 controller:

@@ -2,7 +2,7 @@
 apiVersion: equinor.com/v1
 kind: Gordo
 metadata:
-  name: gordo-crd-testing-project2
+  name: test-project
 
 spec:
   deploy-version: latest
