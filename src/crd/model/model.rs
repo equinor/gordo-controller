@@ -1,4 +1,5 @@
-use kube::api::Object;
+use kube::api::{Api, Object};
+use kube::client::APIClient;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -29,4 +30,11 @@ impl Default for ModelStatus {
     fn default() -> Self {
         ModelStatus::Unknown
     }
+}
+
+pub fn load_model_resource(client: &APIClient, namespace: &str) -> Api<Model> {
+    Api::customResource(client.clone(), "models")
+        .version("v1")
+        .group("equinor.com")
+        .within(&namespace)
 }

@@ -2,15 +2,14 @@ apiVersion: equinor.com/v1
 kind: Model
 metadata:
   name: gordo-model-name
-  labels:
-    app: model-stache-gordo-model-name
-    app.kubernetes.io/name: model-server
-    app.kubernetes.io/component: model
-    app.kubernetes.io/part-of: gordo
-    app.kubernetes.io/managed-by: gordo
-    applications.gordo.equinor.com/project-name: test-project
-    applications.gordo.equinor.com/project-version: "1234"
-    applications.gordo.equinor.com/model-name: gordo-model-name
+  ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Gordo
+      name: test-project-name
+      uid: 123abc
+
 spec:
 
   gordo-version: 0.40.0
