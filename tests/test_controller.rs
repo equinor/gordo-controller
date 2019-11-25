@@ -2,9 +2,10 @@ use kube::api::Api;
 use kube::api::{DeleteParams, ListParams, PostParams};
 use tokio_test::block_on;
 
-use crate::crd::gordo::load_gordo_resource;
-use crate::tests::helpers;
-use crate::{deploy_job::DeployJob, GordoEnvironmentConfig};
+mod helpers;
+
+use gordo_controller::crd::gordo::load_gordo_resource;
+use gordo_controller::{deploy_job::DeployJob, GordoEnvironmentConfig};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -69,7 +70,7 @@ fn test_launch_waiting_gordos() {
 
         // Launch the waiting config.
         let resource = load_gordo_resource(&client, "default");
-        crate::crd::gordo::launch_waiting_gordo_workflows(
+        gordo_controller::crd::gordo::launch_waiting_gordo_workflows(
             &resource,
             &client,
             "default",
@@ -81,7 +82,7 @@ fn test_launch_waiting_gordos() {
         assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 1);
 
         // Delete all jobs
-        crate::crd::gordo::remove_gordo_deploy_jobs(&new_gordo, &client, "default").await;
+        gordo_controller::crd::gordo::remove_gordo_deploy_jobs(&new_gordo, &client, "default").await;
 
         // And finally, we should have zero jobs
         std::thread::sleep(std::time::Duration::from_secs(8)); // Time for step above to finish
@@ -91,9 +92,9 @@ fn test_launch_waiting_gordos() {
 
 #[test]
 fn test_minor_version() {
-    assert_eq!(crate::minor_version("0.33.0"), Some(33));
-    assert_eq!(crate::minor_version("0.31.12"), Some(31));
-    assert_eq!(crate::minor_version("0.abc.def"), None);
+    assert_eq!(gordo_controller::minor_version("0.33.0"), Some(33));
+    assert_eq!(gordo_controller::minor_version("0.31.12"), Some(31));
+    assert_eq!(gordo_controller::minor_version("0.abc.def"), None);
 }
 
 #[test]
