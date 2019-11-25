@@ -78,8 +78,7 @@ async fn update_gordo_models_build_count(
 ) -> Result<(), kube::Error> {
     match model.metadata.labels.get("applications.gordo.equinor.com/project-name") {
         Some(project_name) => {
-            // Get the project-name, which is the name of the Gordo
-            // Find the owning Gordo
+            // Find the owning Gordo, which is the project name
             let gordo_api = load_gordo_resource(&client, &namespace);
             let gordo = gordo_api.get(project_name).await?;
 
@@ -88,8 +87,7 @@ async fn update_gordo_models_build_count(
             lp.label_selector = Some(format!("applications.gordo.equinor.com/project-name={}", &project_name));
             let models = resource.list(&lp).await?;
 
-            // Get the current status of this gordo, and then update the number of built models
-            // with the current list count of models found
+            // Create a status from the current status, and then update the number of built models
             let mut status = GordoStatus::from(&gordo);
             status.n_models_built = models.items.len();
             let patch = serde_json::to_vec(&json!({ "status": status })).unwrap();
