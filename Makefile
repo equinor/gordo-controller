@@ -3,7 +3,7 @@ GORDO_CONTROLLER_IMG_NAME := equinor/gordo-controller
 
 test:
 	kubectl config use-context minikube
-	cargo test -- --test-threads=1
+	cargo test --tests -- --test-threads=1
 
 controller:
 	docker build . -f Dockerfile-controller -t $(GORDO_CONTROLLER_IMG_NAME)

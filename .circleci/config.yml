@@ -105,7 +105,7 @@ jobs:
           command: kustomize build k8s
 
       - run:
-          name: Apply CRD to cluster
+          name: Apply CRDs to cluster
           command: kubectl apply -k k8s -n default
 
       - run:
@@ -115,8 +115,21 @@ jobs:
           command: kubectl get models
 
       - run:
-          name: Rust Test
-          command: cargo test -- --test-threads=1
+          name: Unit Tests
+          command: cargo test --tests -- --test-threads=1
+
+      - run:
+          name: Start Gordo Controller
+          command: cargo run
+          background: true
+
+      - run:
+          name: Sleep
+          command: sleep 10
+
+      - run:
+          name: Integration Tests
+          command: cargo test --examples
 
   build-image:
     machine:
