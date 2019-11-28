@@ -8,6 +8,18 @@ spec:
       description: Current status of the model
       name: ModelStatus
       type: string
+    - JSONPath: .metadata.labels.applications\.gordo\.equinor\.com/project-version
+      description: Project version
+      name: Project version
+      type: string
+    - JSONPath: .metadata.labels.applications\.gordo\.equinor\.com/project-name
+      description: Project name
+      name: Project name
+      type: string
+    - JSONPath: .metadata.labels.applications\.gordo\.equinor\.com/model-name
+      description: Name of the model
+      name: Model name
+      type: string
   group: equinor.com
   names:
     kind: Model
