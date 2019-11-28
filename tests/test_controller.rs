@@ -1,11 +1,10 @@
-use kube::api::Api;
 use kube::api::{DeleteParams, ListParams, PostParams};
 use tokio_test::block_on;
 
 mod helpers;
 
 use gordo_controller::crd::gordo::load_gordo_resource;
-use gordo_controller::{deploy_job::DeployJob, GordoEnvironmentConfig};
+use gordo_controller::{deploy_job::DeployJob};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -39,55 +38,6 @@ fn test_create_gordo() {
         }
 
         // Back to zero gordos
-        assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
-    })
-}
-
-// Given an applied Gordo config which hasn't been submited to gordo-deploy job
-// it should be able to pick those and submit them to gordo-deploy
-#[test]
-fn test_launch_waiting_gordos() {
-    block_on(async {
-        let client = helpers::client().await;
-        let gordos = load_gordo_resource(&client, "default");
-
-        // Delete any gordos
-        helpers::remove_gordos(&gordos).await;
-
-        // Apply the `gordo-example.yaml` file
-        let config = helpers::example_config("example-gordo.yaml");
-        let new_gordo = match gordos
-            .create(&PostParams::default(), serde_json::to_vec(&config).unwrap())
-            .await
-        {
-            Ok(new_gordo) => new_gordo,
-            Err(err) => panic!("Failed to create gordo with error: {:?}", err),
-        };
-
-        // No jobs waiting after applying config.
-        let jobs = Api::v1Job(client.clone()).within("default");
-        assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 0);
-
-        // Launch the waiting config.
-        let resource = load_gordo_resource(&client, "default");
-        gordo_controller::crd::gordo::launch_waiting_gordo_workflows(
-            &resource,
-            &client,
-            "default",
-            &GordoEnvironmentConfig::default(),
-        )
-        .await;
-
-        // Now we should have one job.
-        assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 1);
-
-        // Delete all gordos and jobs
-        gordo_controller::crd::gordo::remove_gordo_deploy_jobs(&new_gordo, &client, "default").await;
-        assert!(gordos.delete(&new_gordo.metadata.name, &DeleteParams::default()).await.is_ok());
-
-        // And finally, we should have zero jobs and gordos
-        std::thread::sleep(std::time::Duration::from_secs(8)); // Time for step above to finish
-        assert_eq!(jobs.list(&ListParams::default()).await.unwrap().items.len(), 0);
         assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
     })
 }

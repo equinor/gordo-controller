@@ -80,58 +80,6 @@ impl Default for GordoSubmissionStatus {
     }
 }
 
-/// Look for and submit `Gordo`s which have a `GenerationNumber` different than what Kubernetes
-/// has set in its `metadata.generation`; meaning changes have been submitted to the resource but
-/// the `GordoStatus` has not been updated to reflect this and therefore needs to be submitted to
-/// the workflow generator job.
-pub async fn launch_waiting_gordo_workflows(
-    resource: &Api<Gordo>,
-    client: &APIClient,
-    namespace: &str,
-    env_config: &GordoEnvironmentConfig,
-) -> () {
-    match resource.list(&ListParams::default()).await {
-        Ok(gordos) => {
-            let n_gordos = gordos.items.len();
-            if n_gordos == 0 {
-                info!("No waiting gordos need submitting.");
-            } else {
-                info!(
-                    "Found {} gordos, checking if any need submitting to gordo-deploy",
-                    n_gordos
-                );
-
-                join_all(
-                    gordos
-                        .items
-                        .iter()
-                        .filter(|gordo| {
-                            // Determine if this gordo should be submitted to gordo-deploy
-                            match &gordo.status {
-                                Some(status) => {
-                                    match status.submission_status {
-                                        // Already submitted; only re-submit if the revision has changed from the one submitted.
-                                        GordoSubmissionStatus::Submitted(revision) => {
-                                            revision != gordo.metadata.generation.map(|v| v as u32)
-                                        }
-                                    }
-                                }
-                                None => true, // No status, should submit
-                            }
-                        })
-                        .map(|gordo| {
-                            // Submit this gordo resource.
-                            info!("Submitting waiting Gordo: {}", &gordo.metadata.name);
-                            start_gordo_deploy_job(gordo, &client, &resource, &namespace, &env_config)
-                        }),
-                )
-                .await;
-            }
-        }
-        Err(e) => error!("Unable to list previous gordos: {:?}", e),
-    }
-}
-
 /// Start a gordo-deploy job using this `Gordo`.
 /// Will patch the status of the `Gordo` to reflect the current revision number
 pub async fn start_gordo_deploy_job(
