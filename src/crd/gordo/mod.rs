@@ -43,7 +43,7 @@ async fn handle_gordo_state(
     resource: &Api<Gordo>,
     namespace: &str,
     env_config: &GordoEnvironmentConfig,
-) -> Result<(), kube::ApiError> {
+) -> Result<(), kube::Error> {
     let should_start_deploy_job = match gordo.status {
         Some(ref status) => {
             match status.submission_status {
