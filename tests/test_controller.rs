@@ -4,7 +4,7 @@ use tokio_test::block_on;
 mod helpers;
 
 use gordo_controller::crd::gordo::load_gordo_resource;
-use gordo_controller::{deploy_job::DeployJob};
+use gordo_controller::deploy_job::DeployJob;
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]

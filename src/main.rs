@@ -1,6 +1,6 @@
 use futures::future::join;
 use kube::{client::APIClient, config};
-use log::error;
+use log::info;
 
 use gordo_controller::GordoEnvironmentConfig;
 
@@ -9,10 +9,8 @@ async fn main() -> () {
     std::env::set_var("RUST_LOG", "info,kube=info");
     env_logger::init();
 
-    let env_config = envy::from_env::<GordoEnvironmentConfig>().unwrap_or_else(|e| {
-        error!("Failed to load environment config, using defaults: {:?}", e);
-        GordoEnvironmentConfig::default()
-    });
+    let env_config = envy::from_env::<GordoEnvironmentConfig>().unwrap_or_default();
+    info!("Starting with environment config: {:?}", &env_config);
 
     let kube_config = config::load_kube_config()
         .await
