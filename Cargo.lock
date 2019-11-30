@@ -495,7 +495,7 @@ dependencies = [
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "k8s-openapi 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "kube 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kube 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.103 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.42 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -678,13 +678,14 @@ dependencies = [
 
 [[package]]
 name = "kube"
-version = "0.20.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-timer 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "http 0.1.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "k8s-openapi 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1935,7 +1936,7 @@ dependencies = [
 "checksum js-sys 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)" = "d8657b7ca06a6044ece477f6900bf7670f8b5fd0cce177a1d7094eef51e0adf4"
 "checksum k8s-openapi 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e8eb97e4ea14cef484aa56f44e93653cb6faa351b5f130d38584b3184b6ef5d1"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
-"checksum kube 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ac14ca7fdab3531d0b741edfcea49c0337eb2d7b696661b52a73761c2a54ff3e"
+"checksum kube 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5a105dea804f2b9a0308448ee29df7b8195ff762ac8bf81c611b4e6e0f34c4dd"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 "checksum libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)" = "1a31a0627fdf1f6a39ec0dd577e101440b7db22672c0901fe00a9a6fbb5c24e8"
 "checksum linked-hash-map 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ae91b68aebc4ddb91978b11a1b02ddd8602a05ec19002801c5666000e05e0f83"
