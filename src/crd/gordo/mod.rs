@@ -10,10 +10,10 @@ use kube::api::Reflector;
 
 pub async fn monitor_gordos(client: &APIClient, namespace: &str, env_config: &GordoEnvironmentConfig) -> ! {
     let gordo_resource: Api<Gordo> = load_gordo_resource(&client, &namespace);
-    let gordo_reflector = Reflector::new(gordo_resource.clone()).init().await.unwrap();
+    let gordo_reflector = Reflector::new(gordo_resource.clone()).timeout(15).init().await.unwrap();
 
     loop {
-        let gordos = gordo_reflector.read().unwrap();
+        let gordos = gordo_reflector.state().await.unwrap();
 
         let results = join_all(
             gordos

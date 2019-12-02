@@ -14,12 +14,12 @@ pub async fn monitor_models(client: &APIClient, namespace: &str, _env_config: &G
     let model_resource = load_model_resource(&client, &namespace);
     let gordo_resource = load_gordo_resource(&client, &namespace);
 
-    let model_reflector = Reflector::new(model_resource.clone()).init().await.unwrap();
-    let gordo_reflector = Reflector::new(gordo_resource.clone()).init().await.unwrap();
+    let model_reflector = Reflector::new(model_resource.clone()).timeout(15).init().await.unwrap();
+    let gordo_reflector = Reflector::new(gordo_resource.clone()).timeout(15).init().await.unwrap();
 
     loop {
-        let models = model_reflector.read().unwrap();
-        let gordos = gordo_reflector.read().unwrap();
+        let models = model_reflector.state().await.unwrap();
+        let gordos = gordo_reflector.state().await.unwrap();
 
         // Compare each Gordo's n-models-built against the total models currently found for that Gordo
         for gordo in gordos {
