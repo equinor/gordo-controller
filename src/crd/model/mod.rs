@@ -1,6 +1,7 @@
 pub mod model;
 pub use model::*;
 
+use futures::future::join;
 use kube::{api::PatchParams, client::APIClient};
 use log::error;
 use serde_json::json;
@@ -51,7 +52,13 @@ pub async fn monitor_models(client: &APIClient, namespace: &str, _env_config: &G
             }
         }
 
-        model_reflector.poll().await.unwrap();
-        gordo_reflector.poll().await.unwrap();
+        // Poll reflectors simultaneously
+        let (result1, result2) = join(model_reflector.poll(), gordo_reflector.poll()).await;
+        if let Err(err) = result1 {
+            error!("Failed polling model reflector with error: {:?}", err);
+        }
+        if let Err(err) = result2 {
+            error!("Failed polling Gordo reflector with error: {:?}", err);
+        }
     }
 }
