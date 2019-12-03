@@ -1,7 +1,9 @@
-use gordo_controller::{controller_init, load_kube_config, views, Controller, GordoEnvironmentConfig};
+use gordo_controller::{controller_init, load_kube_config, views, Controller, Gordo, GordoEnvironmentConfig};
 use tokio_test::block_on;
 
+use actix_web::web::Json;
 use actix_web::{http::StatusCode, test, web};
+use gordo_controller::crd::model::Model;
 
 #[test]
 fn test_view_health() {
@@ -18,8 +20,8 @@ fn test_view_gordos() {
         let data = app_state().await;
 
         let req = test::TestRequest::default().to_http_request();
-        let resp = views::gordos(data, req).await;
-        assert_eq!(resp.status(), StatusCode::OK);
+        let resp: Json<Vec<Gordo>> = views::gordos(data, req).await;
+        assert_eq!(resp.0.len(), 0);
     })
 }
 
@@ -29,8 +31,8 @@ fn test_view_models() {
         let data = app_state().await;
 
         let req = test::TestRequest::default().to_http_request();
-        let resp = views::models(data, req).await;
-        assert_eq!(resp.status(), StatusCode::OK);
+        let resp: Json<Vec<Model>> = views::models(data, req).await;
+        assert_eq!(resp.0.len(), 0);
     })
 }
 

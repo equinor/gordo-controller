@@ -1,5 +1,6 @@
-use crate::Controller;
-use actix_web::{dev::HttpResponseBuilder, http::StatusCode, web, HttpRequest, HttpResponse};
+use crate::crd::model::Model;
+use crate::{Controller, Gordo};
+use actix_web::{http::StatusCode, web, HttpRequest, HttpResponse};
 
 // Simple health check endpoint
 pub async fn health(_req: HttpRequest) -> HttpResponse {
@@ -7,13 +8,11 @@ pub async fn health(_req: HttpRequest) -> HttpResponse {
 }
 
 // List current gordos
-pub async fn gordos(data: web::Data<Controller>, _req: HttpRequest) -> HttpResponse {
-    let gordos = data.gordo_state().await;
-    HttpResponseBuilder::new(StatusCode::OK).json(gordos)
+pub async fn gordos(data: web::Data<Controller>, _req: HttpRequest) -> web::Json<Vec<Gordo>> {
+    web::Json(data.gordo_state().await)
 }
 
 // List current models
-pub async fn models(data: web::Data<Controller>, _req: HttpRequest) -> HttpResponse {
-    let models = data.model_state().await;
-    HttpResponseBuilder::new(StatusCode::OK).json(models)
+pub async fn models(data: web::Data<Controller>, _req: HttpRequest) -> web::Json<Vec<Model>> {
+    web::Json(data.model_state().await)
 }
