@@ -26,7 +26,7 @@ impl Default for GordoEnvironmentConfig {
         GordoEnvironmentConfig {
             deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
             server_port: 8888,
-            server_host: "0.0.0.0".to_owned()
+            server_host: "0.0.0.0".to_owned(),
         }
     }
 }

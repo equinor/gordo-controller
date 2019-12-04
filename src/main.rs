@@ -20,7 +20,7 @@ async fn main() -> () {
     let bind_address = format!("{}:{}", &env_config.server_host, env_config.server_port);
 
     // Launch in new thread b/c HttpServer starts own async executor
-    let handle = std::thread::spawn( move || {
+    let handle = std::thread::spawn(move || {
         HttpServer::new(move || {
             App::new()
                 .data(controller.clone())
