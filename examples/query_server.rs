@@ -1,7 +1,9 @@
 use failure::_core::time::Duration;
-use gordo_controller::crd::gordo::load_gordo_resource;
-use gordo_controller::crd::model::{load_model_resource, Model};
-use gordo_controller::{load_kube_config, Gordo};
+use gordo_controller::{
+    crd::gordo::{load_gordo_resource, Gordo},
+    crd::model::{load_model_resource, Model},
+    load_kube_config,
+};
 use kube::api::{DeleteParams, PostParams};
 use kube::client::APIClient;
 use serde_json::Value;
@@ -49,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Wait for controller to pick up changes
     std::thread::sleep(Duration::from_secs(20));
 
-    // Calling /gordos /models /gordos/<name> and /models/<name> will give now give back stuff
+    // Calling /gordos /models /gordos/<name> and /models/<name> will now give back stuff
     let resp: Vec<Gordo> = reqwest::get("http://0.0.0.0:8888/gordos").await?.json().await?;
     assert_eq!(resp.len(), 1);
 
