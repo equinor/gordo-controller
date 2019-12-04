@@ -9,11 +9,11 @@ pub mod deploy_job;
 pub mod views;
 
 use crate::crd::{
-    gordo::{load_gordo_resource, monitor_gordos},
+    gordo::{load_gordo_resource, monitor_gordos, Gordo},
     model::{load_model_resource, monitor_models, Model},
 };
-pub use crd::gordo::Gordo;
 pub use deploy_job::DeployJob;
+use kube::api::Api;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
@@ -52,12 +52,15 @@ pub struct Controller {
     client: APIClient,
     namespace: String,
     gordo_rf: Reflector<Gordo>,
+    gordo_resource: Api<Gordo>,
     model_rf: Reflector<Model>,
+    model_resource: Api<Model>,
+    env_config: GordoEnvironmentConfig,
 }
 
 impl Controller {
     /// Create a new instance of the Gordo Controller
-    pub async fn new(kube_config: Configuration) -> Self {
+    pub async fn new(kube_config: Configuration, env_config: GordoEnvironmentConfig) -> Self {
         let namespace = kube_config.default_ns.to_owned();
         let client = APIClient::new(kube_config);
 
@@ -71,13 +74,20 @@ impl Controller {
             client,
             namespace,
             gordo_rf,
+            gordo_resource,
             model_rf,
+            model_resource,
+            env_config,
         }
     }
 
     /// Poll the Gordo and Model reflectors
     async fn poll(&self) -> Result<(), kube::Error> {
+        // Poll both reflectors for Models and Gordos
         let (result1, result2) = join(self.gordo_rf.poll(), self.model_rf.poll()).await;
+
+        // Make changes based on the current state
+        join(monitor_gordos(&self), monitor_models(&self)).await;
 
         // Return any error, or return Ok
         result1?;
@@ -101,26 +111,16 @@ pub async fn controller_init(
     kube_config: Configuration,
     env_config: GordoEnvironmentConfig,
 ) -> Result<Controller, kube::Error> {
-    let controller = Controller::new(kube_config).await;
+    let controller = Controller::new(kube_config, env_config).await;
 
     // Continuously poll `Controller::poll` to keep the app state current
     let c1 = controller.clone();
     tokio::spawn(async move {
         loop {
             if let Err(err) = c1.poll().await {
-                error!("Failed polling Controller with error: {:?}", err);
-            };
+                error!("Controller polling encountered an error: {:?}", err);
+            }
         }
-    });
-
-    // Start the normal monitoring of Gordos and Models to direct desired state changes
-    let c2 = controller.clone();
-    tokio::spawn(async move {
-        join(
-            monitor_gordos(&c2.client, &c2.namespace, &env_config),
-            monitor_models(&c2.client, &c2.namespace, &env_config),
-        )
-        .await;
     });
     Ok(controller)
 }

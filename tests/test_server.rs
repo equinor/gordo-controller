@@ -1,9 +1,9 @@
-use gordo_controller::{controller_init, load_kube_config, views, Controller, Gordo, GordoEnvironmentConfig};
 use tokio_test::block_on;
 
 use actix_web::web::Json;
 use actix_web::{http::StatusCode, test, web};
-use gordo_controller::crd::model::Model;
+use gordo_controller::{controller_init, load_kube_config, views, Controller, GordoEnvironmentConfig};
+use gordo_controller::{crd::gordo::Gordo, crd::model::Model};
 
 #[test]
 fn test_view_health() {
