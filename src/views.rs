@@ -1,6 +1,6 @@
 use crate::crd::model::Model;
 use crate::{Controller, Gordo};
-use actix_web::{http::StatusCode, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{http::StatusCode, web, HttpRequest, HttpResponse};
 
 // Simple health check endpoint
 pub async fn health(_req: HttpRequest) -> HttpResponse {
