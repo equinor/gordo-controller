@@ -25,6 +25,7 @@ async fn main() -> () {
             App::new()
                 .data(controller.clone())
                 .wrap(middleware::Logger::default().exclude("/health"))
+                .wrap(middleware::Compress::default())
                 .service(web::resource("/health").to(views::health))
                 .service(web::resource("/gordos").to(views::gordos))
                 .service(web::resource("/gordos/{name}").to(views::get_gordo))
