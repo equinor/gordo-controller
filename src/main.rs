@@ -15,9 +15,9 @@ async fn main() -> () {
         .await
         .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"));
 
-    let controller = controller_init(kube_config, env_config).await.unwrap();
-
     let bind_address = format!("{}:{}", &env_config.server_host, env_config.server_port);
+
+    let controller = controller_init(kube_config, env_config).await.unwrap();
 
     // Launch in new thread b/c HttpServer starts own async executor
     let handle = std::thread::spawn(move || {

@@ -65,4 +65,5 @@ async fn main() {
         .delete("gordo-model-name", &DeleteParams::default())
         .await
         .is_ok());
+    std::thread::sleep(Duration::from_secs(15));
 }
