@@ -17,12 +17,16 @@ pub use deploy_job::DeployJob;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
-    deploy_image: String,
+    pub deploy_image: String,
+    pub server_port: u16,
+    pub server_host: String,
 }
 impl Default for GordoEnvironmentConfig {
     fn default() -> Self {
         GordoEnvironmentConfig {
             deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
+            server_port: 8888,
+            server_host: "0.0.0.0".to_owned()
         }
     }
 }

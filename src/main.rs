@@ -17,8 +17,10 @@ async fn main() -> () {
 
     let controller = controller_init(kube_config, env_config).await.unwrap();
 
+    let bind_address = format!("{}:{}", &env_config.server_host, env_config.server_port);
+
     // Launch in new thread b/c HttpServer starts own async executor
-    let handle = std::thread::spawn(|| {
+    let handle = std::thread::spawn( move || {
         HttpServer::new(move || {
             App::new()
                 .data(controller.clone())
@@ -29,8 +31,8 @@ async fn main() -> () {
                 .service(web::resource("/models").to(views::models))
                 .service(web::resource("/models/{gordo_name}").to(views::models_by_gordo))
         })
-        .bind("0.0.0.0:8888")
-        .expect("Could not bind to 0.0.0.0:8888")
+        .bind(&bind_address)
+        .expect(&format!("Could not bind to '{}'", &bind_address))
         .run()
         .unwrap();
     });
