@@ -2,39 +2,31 @@ use futures::future::join_all;
 use kube::{api::Api, client::APIClient};
 use log::error;
 
-use crate::GordoEnvironmentConfig;
+use crate::{Controller, GordoEnvironmentConfig};
 
 pub mod gordo;
 pub use gordo::*;
-use kube::api::Reflector;
 
-pub async fn monitor_gordos(client: &APIClient, namespace: &str, env_config: &GordoEnvironmentConfig) -> ! {
-    let gordo_resource: Api<Gordo> = load_gordo_resource(&client, &namespace);
-    let gordo_reflector = Reflector::new(gordo_resource.clone()).init().await.unwrap();
+pub async fn monitor_gordos(controller: &Controller) -> () {
+    let gordos = controller.gordo_state().await;
 
-    loop {
-        let gordos = gordo_reflector.read().unwrap();
-
-        let results = join_all(
-            gordos
-                .iter()
-                .map(|gordo| handle_gordo_state(gordo, &client, &gordo_resource, &namespace, &env_config)),
+    let results = join_all(gordos.iter().map(|gordo| {
+        handle_gordo_state(
+            gordo,
+            &controller.client,
+            &controller.gordo_resource,
+            &controller.namespace,
+            &controller.env_config,
         )
-        .await;
+    }))
+    .await;
 
-        // Log any errors in handling state
-        results.iter().for_each(|result| {
-            if let Err(err) = result {
-                error!("{:?}", err);
-            }
-        });
-
-        // Update state changes
-        gordo_reflector
-            .poll()
-            .await
-            .unwrap_or_else(|e| panic!("Failed to poll: {:?}", e));
-    }
+    // Log any errors in handling state
+    results.iter().for_each(|result| {
+        if let Err(err) = result {
+            error!("{:?}", err);
+        }
+    });
 }
 
 async fn handle_gordo_state(
