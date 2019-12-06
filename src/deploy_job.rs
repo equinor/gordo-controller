@@ -1,12 +1,25 @@
-use crate::minor_version;
 use crate::{Gordo, GordoEnvironmentConfig};
+use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec, ResourceRequirements};
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
+use kube::api::{ObjectMeta, OwnerReference, TypeMeta};
 use serde::Serialize;
-use serde_json::{json, Value};
+use std::collections::BTreeMap;
+use std::iter::FromIterator;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct DeployJob {
-    pub name: String,
-    pub manifest: Value,
+    pub types: TypeMeta,
+    pub metadata: ObjectMeta,
+    pub spec: DeployJobSpec,
+    pub status: Option<kube::api::Void>,
+}
+
+#[derive(Serialize, Clone)]
+#[allow(non_snake_case)]
+pub struct DeployJobSpec {
+    pub ttlSecondsAfterFinished: u32,
+    pub template: PodTemplateSpec,
 }
 
 impl DeployJob {
@@ -20,84 +33,121 @@ impl DeployJob {
         );
         let job_name = Self::deploy_job_name("gordo-dpl-", &job_name_suffix);
 
-        // Define the owner reference info
-        let owner_references = json!([
-        {"blockOwnerDeletion": true, "uid": gordo.metadata.uid, "apiVersion": "v1", "kind": "Gordo", "name": &gordo.metadata.name, "controller": true }
-        ]);
+        let owner_references = Self::owner_references(&gordo);
         let owner_ref_as_string = serde_json::to_string(&owner_references).unwrap();
-
-        // TODO: Remove this after a few weeks/months when people have migrated >= 0.33 of gordo-deploy
-        let gordo_deploy_key_val = if minor_version(&gordo.spec.deploy_version) >= Some(33) {
-            json!({"name": "GORDO_NAME", "value": &gordo.metadata.name})
-        } else {
-            let gordo_config = serde_json::to_string(&gordo.spec.config).unwrap();
-            json!({"name": "MACHINE_CONFIG", "value": gordo_config})
-        };
+        let project_revision = chrono::Utc::now().timestamp_millis().to_string();
 
         // Build up the gordo-deploy environment variables
-        let project_revision = chrono::Utc::now().timestamp_millis().to_string();
-        let mut environment = vec![
-            gordo_deploy_key_val,
-            json!({"name": "ARGO_SUBMIT", "value":  "true"}),
-            json!({"name": "WORKFLOW_GENERATOR_PROJECT_NAME", "value": &gordo.metadata.name}),
-            json!({"name": "WORKFLOW_GENERATOR_OWNER_REFERENCES", "value": owner_ref_as_string}),
-            json!({"name": "WORKFLOW_GENERATOR_PROJECT_VERSION", "value": project_revision}),
+        let mut environment: Vec<EnvVar> = vec![
+            Self::env_var("GORDO_NAME", &gordo.metadata.name),
+            Self::env_var("ARGO_SUBMIT", "true"),
+            Self::env_var("WORKFLOW_GENERATOR_PROJECT_NAME", &gordo.metadata.name),
+            Self::env_var("WORKFLOW_GENERATOR_OWNER_REFERENCES", &owner_ref_as_string),
+            Self::env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
         ];
 
         // push in any that were supplied by the Gordo.spec.gordo_environment mapping
         gordo.spec.deploy_environment.as_ref().map(|env| {
             env.iter().for_each(|(key, value)| {
-                environment.push(json!({"name": key, "value": value}));
+                environment.push(Self::env_var(key, value));
             })
         });
 
-        let manifest: Value = json!({
-            "apiVersion": "batch/v1",
-            "kind": "Job",
-            "metadata": {
-                "name": &job_name,
-                "ownerReferences": owner_references,
-                "labels": {
-                    "gordoProjectName": &gordo.metadata.name
-                }
-            },
-            "spec": {
-                "ttlSecondsAfterFinished": 604800,  // 1 week in seconds
-                "template": {
-                    "metadata": {
-                        "name": &job_name
-                    },
-                    "spec": {
-                        "containers": [{
-                            "name": "gordo-deploy",
-                            "image": &format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version),
-                            "env": environment,
-                            "resources": {
-                                "limits": {
-                                    "memory": "1000Mi",
-                                    "cpu": "2000m"
-                                },
-                                "requests": {
-                                    "memory": "500Mi",
-                                    "cpu": "250m"
-                                }
-                            }
-                        }],
-                        "restartPolicy": "Never"
-                    }
-                }
-            }
+        let container = Self::container(&gordo, environment, env_config);
+        let pod_spec = Self::pod_spec(vec![container]);
+        let spec_metadata = Self::pod_spec_metadata(&job_name);
 
-        });
         Self {
-            name: job_name,
-            manifest,
+            types: TypeMeta {
+                apiVersion: Some("v1".to_string()),
+                kind: Some("Job".to_string()),
+            },
+            metadata: ObjectMeta {
+                name: job_name.clone(),
+                namespace: None,
+                labels: Self::labels(&gordo),
+                annotations: Default::default(),
+                resourceVersion: None,
+                ownerReferences: owner_references,
+                uid: None,
+                generation: None,
+                generateName: None,
+                initializers: None,
+                finalizers: vec![],
+            },
+            spec: DeployJobSpec {
+                ttlSecondsAfterFinished: 604800, // 1 week in seconds,
+                template: PodTemplateSpec {
+                    metadata: Some(spec_metadata),
+                    spec: Some(pod_spec),
+                },
+            },
+            status: None,
         }
     }
 
-    /// Serialize this job's udnerlying k8s manifest into a `Vec<u8>` with serde
-    pub fn as_vec(&self) -> Vec<u8> {
-        serde_json::to_vec(&self.manifest).unwrap()
+    fn env_var(name: &str, value: &str) -> EnvVar {
+        EnvVar {
+            name: name.to_string(),
+            value: Some(value.to_string()),
+            value_from: None,
+        }
+    }
+
+    fn labels(gordo: &Gordo) -> BTreeMap<String, String> {
+        let mut labels = BTreeMap::new();
+        labels.insert("gordoProjectName".to_owned(), gordo.metadata.name.to_owned());
+        labels
+    }
+
+    fn pod_spec_metadata(name: &str) -> OpenApiObjectMeta {
+        let mut spec_metadata = OpenApiObjectMeta::default();
+        spec_metadata.name = Some(name.to_string());
+        spec_metadata
+    }
+
+    fn container(gordo: &Gordo, environment: Vec<EnvVar>, env_config: &GordoEnvironmentConfig) -> Container {
+        let mut container = Container::default();
+        container.name = "gordo-deploy".to_string();
+        container.image = Some(format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version));
+        container.env = Some(environment);
+        container.resources = Some(ResourceRequirements {
+            limits: Some(BTreeMap::from_iter(
+                vec![
+                    ("memory".to_owned(), Quantity("1000Mi".to_owned())),
+                    ("cpu".to_owned(), Quantity("2000m".to_string())),
+                ]
+                .into_iter(),
+            )),
+            requests: Some(BTreeMap::from_iter(
+                vec![
+                    ("memory".to_owned(), Quantity("500Mi".to_owned())),
+                    ("cpu".to_owned(), Quantity("250m".to_string())),
+                ]
+                .into_iter(),
+            )),
+        });
+        container
+    }
+
+    fn pod_spec(containers: Vec<Container>) -> PodSpec {
+        let mut pod_spec = PodSpec::default();
+        pod_spec.containers = containers;
+        pod_spec.restart_policy = Some("Never".to_string());
+        pod_spec
+    }
+
+    fn owner_references(gordo: &Gordo) -> Vec<OwnerReference> {
+        // Define the owner reference info
+        let owner_ref = OwnerReference {
+            controller: Default::default(),
+            blockOwnerDeletion: true,
+            name: gordo.metadata.name.to_owned(),
+            apiVersion: "v1".to_string(),
+            kind: "Gordo".to_string(),
+            uid: gordo.metadata.uid.clone().unwrap_or_default(),
+        };
+        vec![owner_ref]
     }
 
     /// Generate a name which is no greater than 63 chars in length

@@ -45,13 +45,6 @@ fn test_create_gordo() {
 }
 
 #[test]
-fn test_minor_version() {
-    assert_eq!(gordo_controller::minor_version("0.33.0"), Some(33));
-    assert_eq!(gordo_controller::minor_version("0.31.12"), Some(31));
-    assert_eq!(gordo_controller::minor_version("0.abc.def"), None);
-}
-
-#[test]
 fn test_deploy_job_name() {
     let prefix = "gordo-dpl-";
 
@@ -80,11 +73,10 @@ fn test_deploy_job_injects_project_version() {
 
     let deploy_job = DeployJob::new(&gordo, &GordoEnvironmentConfig::default());
 
-    let env: Vec<HashMap<String, String>> =
-        serde_json::from_value(deploy_job.manifest["spec"]["template"]["spec"]["containers"][0]["env"].clone())
-            .unwrap();
-
-    assert!(env
+    assert!(deploy_job.spec.template.spec.unwrap().containers[0]
+        .env
+        .as_ref()
+        .unwrap()
         .iter()
-        .any(|kv| kv.get("name") == Some(&"WORKFLOW_GENERATOR_PROJECT_VERSION".to_owned())));
+        .any(|ev| ev.name == "WORKFLOW_GENERATOR_PROJECT_VERSION"));
 }
