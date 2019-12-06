@@ -109,19 +109,18 @@ pub async fn start_gordo_deploy_job(
         Err(e) => error!("Failed to submit job with error: {:?}", e),
     }
 
-    let status = json!({ "status": GordoStatus::from(gordo) });
+    let mut status = GordoStatus::from(gordo);
+    status.project_revision = Some(job.revision.to_owned());
 
     // Update the status of this job
     info!(
         "Setting status of this gordo '{}' to '{:?}'",
         &gordo.metadata.name, &status
     );
+    let patch =
+        serde_json::to_vec(&json!({ "status": status })).expect("Status was not serializable, should never happen.");
     match resource
-        .patch_status(
-            &gordo.metadata.name,
-            &PatchParams::default(),
-            serde_json::to_vec(&status).expect("Status was not serializable, should never happen."),
-        )
+        .patch_status(&gordo.metadata.name, &PatchParams::default(), patch)
         .await
     {
         Ok(o) => info!("Patched status: {:?}", o.status),

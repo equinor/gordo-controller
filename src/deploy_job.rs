@@ -13,6 +13,8 @@ pub struct DeployJob {
     pub metadata: ObjectMeta,
     pub spec: DeployJobSpec,
     pub status: Option<kube::api::Void>,
+    #[serde(skip)] // This is not part of a k8s resource; for internal use.
+    pub revision: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -83,6 +85,7 @@ impl DeployJob {
                 },
             },
             status: None,
+            revision: project_revision,
         }
     }
 
