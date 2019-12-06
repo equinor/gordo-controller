@@ -35,12 +35,15 @@ impl DeployJob {
         };
 
         // Build up the gordo-deploy environment variables
+        let project_revision = chrono::Utc::now().timestamp_millis().to_string();
         let mut environment = vec![
             gordo_deploy_key_val,
             json!({"name": "ARGO_SUBMIT", "value":  "true"}),
             json!({"name": "WORKFLOW_GENERATOR_PROJECT_NAME", "value": &gordo.metadata.name}),
             json!({"name": "WORKFLOW_GENERATOR_OWNER_REFERENCES", "value": owner_ref_as_string}),
+            json!({"name": "WORKFLOW_GENERATOR_PROJECT_VERSION", "value": project_revision}),
         ];
+
         // push in any that were supplied by the Gordo.spec.gordo_environment mapping
         gordo.spec.deploy_environment.as_ref().map(|env| {
             env.iter().for_each(|(key, value)| {

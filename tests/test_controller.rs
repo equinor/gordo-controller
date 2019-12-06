@@ -3,8 +3,10 @@ use tokio_test::block_on;
 
 mod helpers;
 
-use gordo_controller::crd::gordo::load_gordo_resource;
+use gordo_controller::crd::gordo::{load_gordo_resource, Gordo};
 use gordo_controller::deploy_job::DeployJob;
+use gordo_controller::GordoEnvironmentConfig;
+use std::collections::HashMap;
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -66,4 +68,23 @@ fn test_deploy_job_name() {
         &result,
         "gordo-dpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaarequired-suffix"
     );
+}
+
+#[test]
+fn test_deploy_job_injects_project_version() {
+    /*
+    Ensure the resulting deploy jobs set the WORKFLOW_GENERATOR_PROJECT_VERSION environment variable
+    inside the manifest of the deploy job.
+    */
+    let gordo: Gordo = serde_json::from_value(helpers::example_config("example-gordo.yaml")).unwrap();
+
+    let deploy_job = DeployJob::new(&gordo, &GordoEnvironmentConfig::default());
+
+    let env: Vec<HashMap<String, String>> =
+        serde_json::from_value(deploy_job.manifest["spec"]["template"]["spec"]["containers"][0]["env"].clone())
+            .unwrap();
+
+    assert!(env
+        .iter()
+        .any(|kv| kv.get("name") == Some(&"WORKFLOW_GENERATOR_PROJECT_VERSION".to_owned())));
 }
