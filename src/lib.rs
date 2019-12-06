@@ -31,15 +31,6 @@ impl Default for GordoEnvironmentConfig {
     }
 }
 
-// Get a minor version from standard SemVer string
-pub fn minor_version(deploy_version: &str) -> Option<u32> {
-    deploy_version
-        .split('.')
-        .nth(1)
-        .map(|v| v.parse::<u32>().ok())
-        .unwrap_or(None)
-}
-
 /// Load the `kube::Configuration` giving priority to local, falling back to in-cluster config
 pub async fn load_kube_config() -> Configuration {
     config::load_kube_config()

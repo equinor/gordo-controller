@@ -56,6 +56,8 @@ pub struct GordoStatus {
     pub submission_status: GordoSubmissionStatus,
     #[serde(rename = "n-models-built", default)]
     pub n_models_built: usize,
+    #[serde(rename = "project-revision", default)]
+    pub project_revision: Option<String>,
 }
 
 impl From<&Gordo> for GordoStatus {
@@ -66,6 +68,7 @@ impl From<&Gordo> for GordoStatus {
             submission_status,
             n_models: gordo.spec.config.n_models(),
             n_models_built: gordo_status.n_models_built,
+            project_revision: gordo_status.project_revision,
         }
     }
 }
@@ -96,11 +99,11 @@ pub async fn start_gordo_deploy_job(
     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
 
     // Send off job, later we can add support to watching the job if needed via `jobs.watch(..)`
-    info!("Launching job - {}!", &job.name);
+    info!("Launching job - {}!", &job.metadata.name);
     let postparams = PostParams::default();
     let jobs = Api::v1Job(client.clone()).within(&namespace);
 
-    let serialized_job_manifest = job.as_vec();
+    let serialized_job_manifest = serde_json::to_vec(&job).unwrap();
     match jobs.create(&postparams, serialized_job_manifest).await {
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
         Err(e) => error!("Failed to submit job with error: {:?}", e),
