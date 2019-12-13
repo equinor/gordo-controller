@@ -3,10 +3,10 @@ use tokio_test::block_on;
 
 mod helpers;
 
-use gordo_controller::crd::gordo::{load_gordo_resource, Gordo};
+use gordo_controller::crd::gordo::{load_gordo_resource, Gordo, GordoStatus};
+use gordo_controller::crd::model::{filter_models_on_gordo, Model};
 use gordo_controller::deploy_job::DeployJob;
 use gordo_controller::GordoEnvironmentConfig;
-use std::collections::HashMap;
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -79,4 +79,28 @@ fn test_deploy_job_injects_project_version() {
         .unwrap()
         .iter()
         .any(|ev| ev.name == "WORKFLOW_GENERATOR_PROJECT_VERSION"));
+}
+
+#[test]
+fn test_filter_models_on_gordo() {
+    // Setup Gordo with a project_revision in the status
+    let mut gordo: Gordo = serde_json::from_value(helpers::example_config("example-gordo.yaml")).unwrap();
+    let mut status = GordoStatus::default();
+    let project_revision = "1234".to_owned();
+    status.project_revision = project_revision.clone();
+    gordo.status = Some(status);
+
+    // Make some Models
+    let model: Model = serde_json::from_value(helpers::example_config("example-model.yaml")).unwrap();
+    let mut models: Vec<Model> = std::iter::repeat(model).take(10).collect();
+
+    // No models belong to this Gordo, they match OwnerReference but not the project_revision
+    assert_eq!(filter_models_on_gordo(&gordo, &models).count(), 0);
+
+    // Change one of the models to have a revision matching the Gordo
+    models[0].metadata.labels.insert(
+        "applications.gordo.equinor.com/project-version".to_owned(),
+        project_revision,
+    );
+    assert_eq!(filter_models_on_gordo(&gordo, &models).count(), 1);
 }

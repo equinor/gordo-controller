@@ -1,4 +1,4 @@
-use crate::crd::model::Model;
+use crate::crd::model::{filter_models_on_gordo, Model};
 use crate::{Controller, Gordo};
 use actix_web::{http::StatusCode, web, HttpRequest, HttpResponse};
 
@@ -41,25 +41,9 @@ pub async fn models_by_gordo(data: web::Data<Controller>, gordo_name: web::Path<
     // All models who's owner references have this gordo's name and matches the project revision number
     let models = match gordo_by_name {
         Some(gordo) => {
-            let gordo_revision = gordo.status.clone().unwrap_or_default().project_revision;
-
-            data.model_state()
-                .await
-                .into_iter()
-                .filter(|model| {
-                    model
-                        .metadata
-                        .ownerReferences
-                        .iter()
-                        .any(|owner_ref| owner_ref.name == gordo_name.as_str())
-                })
-                .filter(|model| {
-                    model
-                        .metadata
-                        .labels
-                        .get("applications.gordo.equinor.com/project-version")
-                        == Some(&gordo_revision)
-                })
+            let all_models = data.model_state().await;
+            filter_models_on_gordo(&gordo, &all_models)
+                .map(ToOwned::to_owned)
                 .collect()
         }
         None => Vec::with_capacity(0), // No models found for a Gordo which doesn't exist
