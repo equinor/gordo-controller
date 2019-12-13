@@ -28,19 +28,42 @@ pub async fn models(data: web::Data<Controller>, _req: HttpRequest) -> web::Json
     web::Json(data.model_state().await)
 }
 
-// List current models belonging to a specific Gordo
+// List current models belonging to a specific Gordo at the same project revision number
 pub async fn models_by_gordo(data: web::Data<Controller>, gordo_name: web::Path<String>) -> web::Json<Vec<Model>> {
-    let models = data
-        .model_state()
+    // Get the gordo by name, can result in None
+    let gordo_by_name: Option<Gordo> = data
+        .gordo_state()
         .await
         .into_iter()
-        .filter(|model| {
-            model
-                .metadata
-                .ownerReferences
-                .iter()
-                .any(|owner_ref| owner_ref.name == gordo_name.as_str())
-        })
-        .collect();
+        .filter(|gordo| &gordo.metadata.name == gordo_name.as_str())
+        .nth(0);
+
+    // All models who's owner references have this gordo's name and matches the project revision number
+    let models = match gordo_by_name {
+        Some(gordo) => {
+            let gordo_revision = gordo.status.clone().unwrap_or_default().project_revision;
+
+            data.model_state()
+                .await
+                .into_iter()
+                .filter(|model| {
+                    model
+                        .metadata
+                        .ownerReferences
+                        .iter()
+                        .any(|owner_ref| owner_ref.name == gordo_name.as_str())
+                })
+                .filter(|model| {
+                    model
+                        .metadata
+                        .labels
+                        .get("applications.gordo.equinor.com/project-version")
+                        == Some(&gordo_revision)
+                })
+                .collect()
+        }
+        None => Vec::with_capacity(0), // No models found for a Gordo which doesn't exist
+    };
+
     web::Json(models)
 }

@@ -32,7 +32,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply a Gordo and Model
     let gordo: Value = read_manifest("example-gordo.yaml");
+    let gordo: Gordo = serde_json::from_value(gordo).unwrap();
+
     let model: Value = read_manifest("example-model.yaml");
+    let mut model: Model = serde_json::from_value(model).unwrap();
 
     let client = APIClient::new(load_kube_config().await);
     let gordo_api = load_gordo_resource(&client, "default");
@@ -43,6 +46,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .create(&PostParams::default(), serde_json::to_vec(&gordo).unwrap())
         .await
         .unwrap();
+    std::thread::sleep(Duration::from_secs(2));
+
+    // Wait for controller to pick up and assign a status to this gordo, which will have the project revision set
+    while let Ok(gordo) = gordo_api.get(&gordo.metadata.name).await {
+        match gordo.status {
+            Some(status) => {
+                // Update this model's project-version to match the revision number given to the owning Gordo
+                model.metadata.labels.insert(
+                    "applications.gordo.equinor.com/project-version".to_string(),
+                    status.project_revision,
+                );
+                break;
+            }
+            None => std::thread::sleep(Duration::from_secs(2)),
+        }
+    }
+
+    // Apply the model to the cluster
     model_api
         .create(&PostParams::default(), serde_json::to_vec(&model).unwrap())
         .await

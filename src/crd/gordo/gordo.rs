@@ -57,7 +57,7 @@ pub struct GordoStatus {
     #[serde(rename = "n-models-built", default)]
     pub n_models_built: usize,
     #[serde(rename = "project-revision", default)]
-    pub project_revision: Option<String>,
+    pub project_revision: String,
 }
 
 impl From<&Gordo> for GordoStatus {
@@ -110,7 +110,7 @@ pub async fn start_gordo_deploy_job(
     }
 
     let mut status = GordoStatus::from(gordo);
-    status.project_revision = Some(job.revision.to_owned());
+    status.project_revision = job.revision.to_owned();
 
     // Update the status of this job
     info!(
