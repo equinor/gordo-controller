@@ -14,16 +14,7 @@ pub async fn monitor_models(controller: &Controller) -> () {
 
     // Compare each Gordo's n-models-built against the total models currently found for that Gordo
     for gordo in gordos {
-        let n_models_built = models
-            .iter()
-            .filter(|model| {
-                model
-                    .metadata
-                    .ownerReferences
-                    .iter()
-                    .any(|owner_ref| owner_ref.name == gordo.metadata.name)
-            })
-            .count();
+        let n_models_built = filter_models_on_gordo(&gordo, &models).count();
 
         // If the gordo's current status of built models doesn't match the current models existing
         // we need to patch its status to reflect the actual models built for it.
