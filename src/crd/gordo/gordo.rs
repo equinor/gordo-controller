@@ -26,7 +26,7 @@ pub struct GordoSpec {
 /// The actual structure, so much as we need to parse, of a gordo config.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GordoConfig {
-    #[serde(alias = "machines")]
+    #[serde(alias = "machines", default)]
     models: Vec<Value>,
     #[serde(default)]
     globals: Option<Value>,
