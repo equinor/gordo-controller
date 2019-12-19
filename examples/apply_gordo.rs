@@ -45,7 +45,7 @@ async fn main() {
 
     // Update the model to match the project-revision set by the controller
     model.metadata.labels.insert(
-        "applications.gordo.equinor.com/project-version".to_owned(),
+        "applications.gordo.equinor.com/project-revision".to_owned(),
         gordo.status.unwrap().project_revision,
     );
 

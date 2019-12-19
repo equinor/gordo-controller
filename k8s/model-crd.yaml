@@ -8,9 +8,9 @@ spec:
       description: Current status of the model
       name: ModelStatus
       type: string
-    - JSONPath: .metadata.labels.applications\.gordo\.equinor\.com/project-version
-      description: Project version
-      name: Project version
+    - JSONPath: .metadata.labels.applications\.gordo\.equinor\.com/project-revision
+      description: Project revision
+      name: Project revision
       type: string
     - JSONPath: .metadata.labels.applications\.gordo\.equinor\.com/project-name
       description: Project name

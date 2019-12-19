@@ -41,7 +41,7 @@ pub fn load_model_resource(client: &APIClient, namespace: &str) -> Api<Model> {
 }
 
 /// Filter a collection of models to match a `Gordo` based on `OwnerReference`
-/// and the project-version of the `Model` matches the project-revision of the `Gordo`
+/// and the project-revision of the `Model` matches the project-revision of the `Gordo`
 pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl Iterator<Item = &'a Model> {
     models
         .iter()
@@ -59,7 +59,15 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
                 model
                     .metadata
                     .labels
-                    .get("applications.gordo.equinor.com/project-version")
+                    .get("applications.gordo.equinor.com/project-revision")
+                    // TODO: Here for compatibility when gordo-components <= 0.46.0 used 'project-version' to refer to 'project-revision'
+                    // TODO: can remove when people have >= 0.47.0 of gordo
+                    .or_else(|| {
+                        model
+                            .metadata
+                            .labels
+                            .get("applications.gordo.equinor.com/project-version")
+                    })
                     == Some(&status.project_revision)
             }
             None => false,

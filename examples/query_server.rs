@@ -52,9 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     while let Ok(gordo) = gordo_api.get(&gordo.metadata.name).await {
         match gordo.status {
             Some(status) => {
-                // Update this model's project-version to match the revision number given to the owning Gordo
+                // Update this model's project-revision to match the revision number given to the owning Gordo
                 model.metadata.labels.insert(
-                    "applications.gordo.equinor.com/project-version".to_string(),
+                    "applications.gordo.equinor.com/project-revision".to_string(),
                     status.project_revision,
                 );
                 break;

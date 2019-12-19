@@ -78,7 +78,7 @@ fn test_deploy_job_injects_project_version() {
         .as_ref()
         .unwrap()
         .iter()
-        .any(|ev| ev.name == "WORKFLOW_GENERATOR_PROJECT_VERSION"));
+        .any(|ev| ev.name == "WORKFLOW_GENERATOR_PROJECT_REVISION"));
 }
 
 #[test]
