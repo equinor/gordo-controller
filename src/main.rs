@@ -2,6 +2,7 @@ use actix_web::{middleware, web, App, HttpServer};
 use gordo_controller::{controller_init, views, GordoEnvironmentConfig};
 use kube::config;
 use log::info;
+use std::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> () {
@@ -19,9 +20,13 @@ async fn main() -> () {
 
     let controller = controller_init(kube_config, env_config).await.unwrap();
 
+    let (sender, receiver) = mpsc::channel();
+
     // Launch in new thread b/c HttpServer starts own async executor
     let handle = std::thread::spawn(move || {
-        HttpServer::new(move || {
+        let sys = actix_rt::System::new("gordo-controller-server");
+
+        let srv = HttpServer::new(move || {
             App::new()
                 .data(controller.clone())
                 .wrap(middleware::Logger::default().exclude("/health"))
@@ -34,9 +39,13 @@ async fn main() -> () {
         })
         .bind(&bind_address)
         .expect(&format!("Could not bind to '{}'", &bind_address))
-        .run()
-        .unwrap();
+        .run();
+
+        sender.send(srv).unwrap();
+
+        sys.run().unwrap()
     });
 
+    let _srv = receiver.recv().unwrap();
     handle.join().unwrap()
 }
