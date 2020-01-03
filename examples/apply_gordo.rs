@@ -2,11 +2,11 @@ use kube::config;
 use serde_json::Value;
 use serde_yaml;
 
-use failure::_core::time::Duration;
 use gordo_controller::crd::model::Model;
 use gordo_controller::crd::{gordo::load_gordo_resource, model::load_model_resource};
 use kube::api::{DeleteParams, ListParams, PostParams};
 use kube::client::APIClient;
+use std::time::{Duration, Instant};
 
 #[tokio::main]
 #[test]
@@ -26,13 +26,16 @@ async fn main() {
         .is_ok(),);
     assert_eq!(gordo_api.list(&ListParams::default()).await.unwrap().items.len(), 1);
 
-    // Wait for running controller to update the status
-    std::thread::sleep(Duration::from_secs(20));
+    // Fetch and check number of models when controller has updated the status
+    let gordo = wait_or_panic!({
+        if let Ok(gordo) = gordo_api.get("test-project-name").await {
+            if gordo.status.is_some() {
+                break gordo;
+            }
+        }
+    });
 
-    // Fetch and check number of models
-    let gordo = gordo_api.get("test-project-name").await.unwrap();
     assert_eq!(gordo.spec.config.n_models(), 9);
-    assert!(gordo.status.is_some());
 
     let status = gordo.status.as_ref().unwrap();
     assert_eq!(status.n_models, 9);
@@ -55,14 +58,22 @@ async fn main() {
         .await
         .is_ok());
 
-    // Wait for controller to pick up the change
-    std::thread::sleep(Duration::from_secs(30));
+    // Wait for controller to pick up the change and return models
+    let models = wait_or_panic!({
+        if let Ok(models) = model_api.list(&ListParams::default()).await {
+            break models;
+        }
+    });
+    assert_eq!(models.items.len(), 1);
 
-    assert_eq!(model_api.list(&ListParams::default()).await.unwrap().items.len(), 1);
-
-    // Now Gordo's status should report 1 model built
-    let gordo = gordo_api.get("test-project-name").await.unwrap();
-    assert_eq!(gordo.status.unwrap().n_models_built, 1);
+    // Now Gordo's status should report 1 model built after a while
+    wait_or_panic!({
+        if let Ok(gordo) = gordo_api.get("test-project-name").await {
+            if gordo.status.unwrap().n_models_built == 1 {
+                break;
+            }
+        }
+    });
 
     // Cleanup
     assert!(gordo_api
@@ -73,5 +84,34 @@ async fn main() {
         .delete("gordo-model-name", &DeleteParams::default())
         .await
         .is_ok());
-    std::thread::sleep(Duration::from_secs(15));
+
+    // Wait for both to be deleted.
+    wait_or_panic!({
+        if gordo_api.get("test-project-name").await.is_err() && model_api.get("gordo-model-name").await.is_err() {
+            break;
+        }
+    });
+}
+
+#[macro_export]
+macro_rules! wait_or_panic {
+    // Execute a block of code in a loop with 1 second waits up to 30 seconds total run time
+    // Use: wait_or_panic!({if 5 > 2 { break }})
+    ($code:block) => {
+
+        {
+            let start = Instant::now();
+            loop {
+
+                $code
+
+                if Instant::now() - start > Duration::from_secs(30) {
+                    panic!("Timeout waiting for condition");
+                } else {
+                    std::thread::sleep(Duration::from_secs(1));
+                }
+            }
+        }
+
+    }
 }
