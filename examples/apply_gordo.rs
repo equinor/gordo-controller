@@ -6,7 +6,9 @@ use gordo_controller::crd::model::Model;
 use gordo_controller::crd::{gordo::load_gordo_resource, model::load_model_resource};
 use kube::api::{DeleteParams, ListParams, PostParams};
 use kube::client::APIClient;
-use std::time::{Duration, Instant};
+
+#[macro_use]
+mod helpers;
 
 #[tokio::main]
 #[test]
@@ -91,27 +93,4 @@ async fn main() {
             break;
         }
     });
-}
-
-#[macro_export]
-macro_rules! wait_or_panic {
-    // Execute a block of code in a loop with 1 second waits up to 30 seconds total run time
-    // Use: wait_or_panic!({if 5 > 2 { break }})
-    ($code:block) => {
-
-        {
-            let start = Instant::now();
-            loop {
-
-                $code
-
-                if Instant::now() - start > Duration::from_secs(30) {
-                    panic!("Timeout waiting for condition");
-                } else {
-                    std::thread::sleep(Duration::from_secs(1));
-                }
-            }
-        }
-
-    }
 }

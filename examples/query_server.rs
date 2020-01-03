@@ -8,12 +8,20 @@ use kube::api::{DeleteParams, PostParams};
 use kube::client::APIClient;
 use serde_json::Value;
 
+#[macro_use]
+mod helpers;
+
 #[tokio::main]
 #[test]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Calling /gordos /models /gordos/<name> and /models/<name> will give back nothing before submitting
-    let resp: Vec<Gordo> = reqwest::get("http://0.0.0.0:8888/gordos").await?.json().await?;
-    assert!(resp.is_empty());
+    // Use wait_or_panic because the running controller may still have gordo's in the current state.
+    wait_or_panic!({
+        let resp: Vec<Gordo> = reqwest::get("http://0.0.0.0:8888/gordos").await?.json().await?;
+        if resp.is_empty() {
+            break;
+        }
+    });
 
     let resp: Vec<Model> = reqwest::get("http://0.0.0.0:8888/models").await?.json().await?;
     assert!(resp.is_empty());
@@ -69,15 +77,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .unwrap();
 
-    // Wait for controller to pick up changes
-    std::thread::sleep(Duration::from_secs(20));
-
     // Calling /gordos /models /gordos/<name> and /models/<name> will now give back stuff
-    let resp: Vec<Gordo> = reqwest::get("http://0.0.0.0:8888/gordos").await?.json().await?;
-    assert_eq!(resp.len(), 1);
+    wait_or_panic!({
+        let resp: Vec<Gordo> = reqwest::get("http://0.0.0.0:8888/gordos").await?.json().await?;
+        if resp.len() == 1 {
+            break;
+        }
+    });
 
-    let resp: Vec<Model> = reqwest::get("http://0.0.0.0:8888/models").await?.json().await?;
-    assert_eq!(resp.len(), 1);
+    wait_or_panic!({
+        let resp: Vec<Model> = reqwest::get("http://0.0.0.0:8888/models").await?.json().await?;
+        if resp.len() == 1 {
+            break;
+        }
+    });
 
     let resp: Option<Gordo> = reqwest::get("http://0.0.0.0:8888/gordos/test-project-name")
         .await?
@@ -96,6 +109,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .delete("test-project-name", &DeleteParams::default())
         .await
         .unwrap();
+    model_api
+        .delete("gordo-model-name", &DeleteParams::default())
+        .await
+        .unwrap();
+
+    // Wait for the gordo and model to be deleted.
+    wait_or_panic!({
+        if gordo_api.get("test-project-name").await.is_err() && model_api.get("gordo-model-name").await.is_err() {
+            break;
+        }
+    });
 
     Ok(())
 }
