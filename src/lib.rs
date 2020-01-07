@@ -88,11 +88,11 @@ impl Controller {
 
     /// Current state of Gordos
     pub async fn gordo_state(&self) -> Vec<Gordo> {
-        self.gordo_rf.read().unwrap_or_default()
+        self.gordo_rf.state().await.unwrap_or_default()
     }
     /// Current state of Models
     pub async fn model_state(&self) -> Vec<Model> {
-        self.model_rf.read().unwrap_or_default()
+        self.model_rf.state().await.unwrap_or_default()
     }
 }
 

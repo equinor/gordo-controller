@@ -46,7 +46,6 @@ impl DeployJob {
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_NAME", &gordo.metadata.name),
             Self::env_var("WORKFLOW_GENERATOR_OWNER_REFERENCES", &owner_ref_as_string),
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_REVISION", &project_revision),
-
             // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
         ];
@@ -70,6 +69,8 @@ impl DeployJob {
             metadata: ObjectMeta {
                 name: job_name.clone(),
                 namespace: None,
+                creation_timestamp: None,
+                deletion_timestamp: None,
                 labels: Self::labels(&gordo),
                 annotations: Default::default(),
                 resourceVersion: None,
