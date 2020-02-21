@@ -1,0 +1,11 @@
+commonLabels:
+  stage: minikube
+resources:
+  - storageclass-default.yaml
+  - storageclass-managed-premium.yaml
+  - argo-namespace-install.yaml
+  - default-service-account.yaml
+bases:
+  - ../production
+patchesStrategicMerge:
+  - default-service-account-patch.yaml

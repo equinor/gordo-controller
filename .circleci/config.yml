@@ -101,12 +101,20 @@ jobs:
             sudo chmod +x /usr/bin/kustomize
 
       - run:
-          name: Build CRD
-          command: kustomize build k8s
+          name: Build CRD minikube
+          command: kustomize build k8s/minikube
+
+      - run:
+          name: Build CRD production
+          command: kustomize build k8s/production
+
+      - run:
+          name: Build CRD minikube
+          command: kustomize build k8s/minikube
 
       - run:
           name: Apply CRDs to cluster
-          command: kubectl apply -k k8s -n default
+          command: kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
 
       - run:
           command: kubectl get gordos

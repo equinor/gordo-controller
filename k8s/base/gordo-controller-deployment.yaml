@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gordo-controller
+  name: gordo-controller
+spec:
+  selector:
+    matchLabels:
+      app: gordo-controller
+  template:
+    metadata:
+      labels:
+        app: gordo-controller
+    spec:
+      containers:
+      - image: docker.io/equinor/gordo-controller:latest
+        imagePullPolicy: Always
+        name: gordo-controller
+        ports:
+          - name: http-api
+            containerPort: 8888
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http-api
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 10m
+            memory: 400Mi
+        envFrom:
+          - configMapRef:
+              name: gordo-controller-config-map

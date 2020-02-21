@@ -1,3 +1,4 @@
 resources:
-  - gordo-crd.yaml
-  - model-crd.yaml
+  - production
+  - minikube
+  - base

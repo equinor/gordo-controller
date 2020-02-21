@@ -1,0 +1,6 @@
+resources:
+  - gordo-crd.yaml
+  - model-crd.yaml
+  - gordo-controller-deployment.yaml
+  - gordo-controller-config-map.yaml
+
