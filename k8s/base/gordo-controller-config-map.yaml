@@ -3,4 +3,4 @@ apiVersion: v1
 metadata:
   name: gordo-controller-config-map
 data:
-  DEPLOY_IMAGE: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy"
+  DEPLOY_IMAGE: "docker.io/equinor/gordo-deploy:latest"

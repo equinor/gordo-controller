@@ -3,4 +3,4 @@ apiVersion: v1
 metadata:
   name: gordo-components-config-map
 data:
-  azureml_workspace_str: "019958ea-fe2c-4e14-bbd9-0d2db8ed7cfc:gordo-ml-workspace-poc-rg:gordo-ml-workspace-poc-ml"
+  azureml_workspace_str: "workspace-string-here"

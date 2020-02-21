@@ -6,7 +6,6 @@ resources:
   - argo-namespace-install.yaml
   - default-service-account.yaml
 bases:
-  - ../base
   - ../production
 patchesStrategicMerge:
   - default-service-account-patch.yaml
