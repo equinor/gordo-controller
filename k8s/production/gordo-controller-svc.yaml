@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gordo-controller
+  labels:
+    app: gordo-controller
+    app.kubernetes.io/name: gordo-controller
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: gordo
+    app.kubernetes.io/managed-by: gordo
+spec:
+  selector:
+    app: gordo-controller
+  ports:
+    - port: 80
+      targetPort: http-api

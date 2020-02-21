@@ -1,0 +1,25 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: gordo-controller
+  annotations:
+  labels:
+    app: gordo-controller
+    app.kubernetes.io/name: gordo-controller
+    app.kubernetes.io/component: VirtualService
+    app.kubernetes.io/part-of: gordo
+    app.kubernetes.io/managed-by: gordo
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - istio-system/istio-gateway
+  http:
+    - match:
+        - uri:
+            regex: "/gordo-controller/.+"
+      rewrite:
+        uri: "/"
+      route:
+        - destination:
+            host: gordo-controller

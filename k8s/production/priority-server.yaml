@@ -1,0 +1,7 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: server-priority
+value: 100
+globalDefault: false
+description: "Should be used for gordo server deployments."
