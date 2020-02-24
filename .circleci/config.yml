@@ -106,7 +106,7 @@ jobs:
 
       - run:
           name: Apply CRDs to cluster
-          command: kubectl apply -k minikube -n default
+          command: kubectl apply -k k8s/minikube -n default
 
       - run:
           command: kubectl get gordos
