@@ -17,7 +17,7 @@ spec:
   http:
     - match:
         - uri:
-            regex: "/gordo-controller/.+"
+            prefix: "/gordo-controller/"
       rewrite:
         uri: "/"
       route:
