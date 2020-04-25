@@ -1,6 +1,7 @@
-use futures::future::join;
+use futures::future::join3;
 use kube::config;
-use kube::{api::Reflector, client::APIClient, config::Configuration};
+use kube::{api::Reflector, api::Object, client::APIClient, config::Configuration};
+use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use log::error;
 use serde::Deserialize;
 
@@ -11,6 +12,7 @@ pub mod views;
 use crate::crd::{
     gordo::{load_gordo_resource, monitor_gordos, Gordo},
     model::{load_model_resource, monitor_models, Model},
+    pod::{monitor_pods},
 };
 pub use deploy_job::DeployJob;
 use kube::api::Api;
@@ -46,20 +48,27 @@ pub struct Controller {
     gordo_resource: Api<Gordo>,
     model_rf: Reflector<Model>,
     model_resource: Api<Model>,
+    pod_rf: Reflector<Object<PodSpec, PodStatus>>,
+    pod_resource: Api<Object<PodSpec, PodStatus>>,
     env_config: GordoEnvironmentConfig,
 }
 
 impl Controller {
     /// Create a new instance of the Gordo Controller
     pub async fn new(kube_config: Configuration, env_config: GordoEnvironmentConfig) -> Self {
+        let timeout = 15;
+
         let namespace = kube_config.default_ns.to_owned();
         let client = APIClient::new(kube_config);
 
         let model_resource = load_model_resource(&client, &namespace);
-        let model_rf = Reflector::new(model_resource.clone()).timeout(15).init().await.unwrap();
+        let model_rf = Reflector::new(model_resource.clone()).timeout(timeout).init().await.unwrap();
 
         let gordo_resource = load_gordo_resource(&client, &namespace);
-        let gordo_rf = Reflector::new(gordo_resource.clone()).timeout(15).init().await.unwrap();
+        let gordo_rf = Reflector::new(gordo_resource.clone()).timeout(timeout).init().await.unwrap();
+
+        let pod_resource = Api::v1Pod(client.clone()).within(&namespace);
+        let pod_rf = Reflector::new(pod_resource.clone()).timeout(timeout).init().await.unwrap();
 
         Controller {
             client,
@@ -68,6 +77,8 @@ impl Controller {
             gordo_resource,
             model_rf,
             model_resource,
+            pod_rf,
+            pod_resource,
             env_config,
         }
     }
@@ -75,14 +86,15 @@ impl Controller {
     /// Poll the Gordo and Model reflectors
     async fn poll(&self) -> Result<(), kube::Error> {
         // Poll both reflectors for Models and Gordos
-        let (result1, result2) = join(self.gordo_rf.poll(), self.model_rf.poll()).await;
+        let (result1, result2, result3) = join3(self.gordo_rf.poll(), self.model_rf.poll(), self.pod_rf.poll()).await;
 
         // Make changes based on the current state
-        join(monitor_gordos(&self), monitor_models(&self)).await;
+        join3(monitor_gordos(&self), monitor_models(&self), monitor_pods(&self)).await;
 
         // Return any error, or return Ok
         result1?;
         result2?;
+        result3?;
         Ok(())
     }
 
@@ -93,6 +105,10 @@ impl Controller {
     /// Current state of Models
     pub async fn model_state(&self) -> Vec<Model> {
         self.model_rf.state().await.unwrap_or_default()
+    }
+    /// Current state of Pods
+    pub async fn pod_state(&self) -> Vec<Object<PodSpec, PodStatus>> {
+        self.pod_rf.state().await.unwrap_or_default()
     }
 }
 
