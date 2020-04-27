@@ -56,21 +56,19 @@ pub async fn monitor_pods(controller: &Controller) -> () {
                 continue;
             }
             let curr_model = found_models[0];
-            match (&curr_model.status, &pod_phase_to_model_status(pod_phase)) {
-                (Some(curr_model_status), Some(model_status)) => {
-                    if curr_model_status == model_status {
-                        let patch_params = PatchParams::default();
-                        let patch = serde_json::to_vec(&json!({ "status": model_status })).unwrap();
-                        let name = &curr_model.metadata.name;
-                        if let Err(err) = controller.model_resource.patch_status(name, &patch_params, patch).await {
-                            error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
-                        } else {
-                            println!("Patching Model '{}' from status {:?} to {:?}", name, curr_model_status, model_status);
-                        }
-                    }
-                },
-                _ => {}
+            let model_status = pod_phase_to_model_status(pod_phase);
+            if curr_model.status != model_status {
+                let patch_params = PatchParams::default();
+                let patch = serde_json::to_vec(&json!({ "status": model_status })).unwrap();
+                let name = &curr_model.metadata.name;
+                if let Err(err) = controller.model_resource.patch_status(name, &patch_params, patch).await {
+                    error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
+                } else {
+                    println!("Patching Model '{}' from status {:?} to {:?}", name, curr_model.status, model_status);
+                }
             }
+        } else {
+            println!("Found models list is empty")
         }
     }
 }
