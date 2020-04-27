@@ -15,14 +15,14 @@ pub struct ModelSpec {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ModelStatus {
     #[serde(alias = "unknown")]
     Unknown,
     #[serde(alias = "inProgress")]
     InProgress,
     #[serde(alias = "buildFailed")]
-    BuildFailed(String),
+    BuildFailed(i32),
     #[serde(alias = "buildSucceeded")]
     BuildSucceeded,
 }

@@ -68,7 +68,7 @@ impl Controller {
         let gordo_rf = Reflector::new(gordo_resource.clone()).timeout(timeout).init().await.unwrap();
 
         let pod_resource = Api::v1Pod(client.clone()).within(&namespace);
-        let pod_rf = Reflector::new(pod_resource.clone()).timeout(timeout).init().await.unwrap();
+        let pod_rf = Reflector::new(pod_resource.clone()).timeout(timeout).labels("app==gordo-model-builder").init().await.unwrap();
 
         Controller {
             client,

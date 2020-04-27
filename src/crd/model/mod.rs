@@ -12,6 +12,13 @@ pub async fn monitor_models(controller: &Controller) -> () {
     let models = controller.model_state().await;
     let gordos = controller.gordo_state().await;
 
+    for model in &models {
+        if let None = model.status {
+            let name = model.spec.config["name"].as_str().unwrap_or("unknown");
+            println!("Unknown status for model {}", name);
+        }
+    }
+
     // Compare each Gordo's n-models-built against the total models currently found for that Gordo
     for gordo in gordos {
         let n_models_built = filter_models_on_gordo(&gordo, &models).count();
