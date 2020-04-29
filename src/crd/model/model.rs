@@ -22,7 +22,7 @@ pub enum ModelStatus {
     #[serde(alias = "inProgress")]
     InProgress,
     #[serde(alias = "buildFailed")]
-    BuildFailed(i32),
+    BuildFailed,
     #[serde(alias = "buildSucceeded")]
     BuildSucceeded,
 }
