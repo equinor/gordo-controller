@@ -37,33 +37,44 @@ pub async fn monitor_pods(controller: &Controller) -> () {
 
     for model in models {
         let model_labels = &model.metadata.labels;
-        let found_pods: Vec<&Object<PodSpec, PodStatus>> = pods.
-            iter().
-            filter(move |pod| {
+        let found_pods: Vec<&Object<PodSpec, PodStatus>> = pods
+            .iter()
+            .filter(move |pod| {
                 let pod_labels = &pod.metadata.labels;
                 MATCH_LABELS.
                     iter().
                     all(move |&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
-            }).
-            collect();
+            })
+            .collect();
         if !found_pods.is_empty() {
-            let mut phases_counts: Vec<i32> = vec![0; POD_PHASES.len()]; 
-            found_pods.iter()
+            let found_pods_phases = found_pods.iter()
                 .flat_map(|pod| &pod.status)
                 .flat_map(|status| &status.phase)
-                .for_each(move |phase| {
-                    for (i, pod_phase) in POD_PHASES.iter().enumerate() {
-                        if pod_phase.phase == phase {
-                            *&mut phases_counts[i] += 1;
-                            break;
-                        }
-                    }
+                .flat_map(|phase| {
+                    POD_PHASES.iter()
+                        .enumerate()
+                        .filter(move |(_, pod_phase)| pod_phase.phase == phase)
                 });
-            let mut last_pod_phase: Option<&PodPhase> = None;
-            for (i, phases_count) in phases_counts.iter().enumerate().rev() {
-                if phases_count > &0 {
-                    last_pod_phase = Some(POD_PHASES[i].clone()); 
-                    break
+            let mut phases_counts: Vec<i32> = vec![0; POD_PHASES.len()];
+            for (i, _) in found_pods_phases {
+                phases_counts[i] += 1
+            }
+            let mut highest_priority_phase = phases_counts.iter()
+                .enumerate()
+                .rev()
+                .filter(|(_, count)| **count > 0)
+                .map(|(i, _)| i)
+                .take(1);
+            let phase_ind: Option<usize> = highest_priority_phase.next();
+            if let Some(i) = phase_ind {
+                let phase_pod = POD_PHASES[i];
+                match phase_pod.model_status {
+                    ModelStatus::BuildFailed => {
+                        println!("Build failed");
+                    }
+                    _ => {
+                        println!("Build succeed");
+                    }
                 }
             }
         }
