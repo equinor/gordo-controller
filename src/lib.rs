@@ -1,4 +1,4 @@
-use futures::future::join3;
+use futures::future::join4;
 use kube::config;
 use kube::{api::Reflector, api::Object, client::APIClient, config::Configuration};
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
@@ -13,6 +13,7 @@ use crate::crd::{
     gordo::{load_gordo_resource, monitor_gordos, Gordo},
     model::{load_model_resource, monitor_models, Model},
     pod::{monitor_pods},
+    argo::{load_argo_workflow_resource, monitor_wf, ArgoWorkflow}
 };
 pub use deploy_job::DeployJob;
 use kube::api::Api;
@@ -50,6 +51,8 @@ pub struct Controller {
     model_resource: Api<Model>,
     pod_rf: Reflector<Object<PodSpec, PodStatus>>,
     pod_resource: Api<Object<PodSpec, PodStatus>>,
+    wf_rf: Reflector<ArgoWorkflow>,
+    wf_resource: Api<ArgoWorkflow>,
     env_config: GordoEnvironmentConfig,
 }
 
@@ -70,6 +73,9 @@ impl Controller {
         let pod_resource = Api::v1Pod(client.clone()).within(&namespace);
         let pod_rf = Reflector::new(pod_resource.clone()).timeout(timeout).labels("app==gordo-model-builder").init().await.unwrap();
 
+        let wf_resource = load_argo_workflow_resource(&client, &namespace);
+        let wf_rf = Reflector::new(wf_resource.clone()).timeout(timeout).init().await.unwrap();;
+
         Controller {
             client,
             namespace,
@@ -79,6 +85,8 @@ impl Controller {
             model_resource,
             pod_rf,
             pod_resource,
+            wf_rf,
+            wf_resource,
             env_config,
         }
     }
@@ -86,15 +94,16 @@ impl Controller {
     /// Poll the Gordo and Model reflectors
     async fn poll(&self) -> Result<(), kube::Error> {
         // Poll both reflectors for Models and Gordos
-        let (result1, result2, result3) = join3(self.gordo_rf.poll(), self.model_rf.poll(), self.pod_rf.poll()).await;
+        let (result1, result2, result3, result4) = join4(self.gordo_rf.poll(), self.model_rf.poll(), self.pod_rf.poll(), self.wf_rf.poll()).await;
 
         // Make changes based on the current state
-        join3(monitor_gordos(&self), monitor_models(&self), monitor_pods(&self)).await;
+        join4(monitor_gordos(&self), monitor_models(&self), monitor_pods(&self), monitor_wf(&self)).await;
 
         // Return any error, or return Ok
         result1?;
         result2?;
         result3?;
+        result4?;
         Ok(())
     }
 
@@ -105,6 +114,9 @@ impl Controller {
     /// Current state of Models
     pub async fn model_state(&self) -> Vec<Model> {
         self.model_rf.state().await.unwrap_or_default()
+    }
+    pub async fn wf_state(&self) -> Vec<ArgoWorkflow> {
+        self.wf_rf.state().await.unwrap_or_default()
     }
     /// Current state of Pods
     pub async fn pod_state(&self) -> Vec<Object<PodSpec, PodStatus>> {
