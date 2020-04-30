@@ -1,5 +1,3 @@
-use crate::Controller;
-
 use kube::api::{Api, Object};
 use kube::client::APIClient;
 use serde::{Deserialize, Serialize};
@@ -31,13 +29,4 @@ pub fn load_argo_workflow_resource(client: &APIClient, namespace: &str) -> Api<A
         .version("v1alpha1")
         .group("argoproj.io")
         .within(&namespace)
-}
-
-pub async fn monitor_wf(controller: &Controller) -> () {
-    let workflows = controller.wf_state().await;
-
-    for wf in workflows {
-        let wf_phase = wf.status.unwrap().phase;
-        println!("Workflow with state {:?}", wf_phase);
-    }
 }

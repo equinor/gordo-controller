@@ -13,7 +13,7 @@ use crate::crd::{
     gordo::{load_gordo_resource, monitor_gordos, Gordo},
     model::{load_model_resource, monitor_models, Model},
     pod::{monitor_pods},
-    argo::{load_argo_workflow_resource, monitor_wf, ArgoWorkflow}
+    argo::{load_argo_workflow_resource, monitor_wf, ArgoWorkflow},
 };
 pub use deploy_job::DeployJob;
 use kube::api::Api;
@@ -74,7 +74,7 @@ impl Controller {
         let pod_rf = Reflector::new(pod_resource.clone()).timeout(timeout).labels("app==gordo-model-builder").init().await.unwrap();
 
         let wf_resource = load_argo_workflow_resource(&client, &namespace);
-        let wf_rf = Reflector::new(wf_resource.clone()).timeout(timeout).init().await.unwrap();;
+        let wf_rf = Reflector::new(wf_resource.clone()).timeout(timeout).init().await.unwrap();
 
         Controller {
             client,
