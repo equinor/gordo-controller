@@ -18,11 +18,15 @@ impl Default for ArgoWorkflowPhase {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ArgoWorkflowSpec {
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ArgoWorkflowStatus {
     pub phase: ArgoWorkflowPhase,
 }
 
-pub type ArgoWorkflow = Object<(), ArgoWorkflowStatus>;
+pub type ArgoWorkflow = Object<ArgoWorkflowSpec, ArgoWorkflowStatus>;
 
 pub fn load_argo_workflow_resource(client: &APIClient, namespace: &str) -> Api<ArgoWorkflow> {
     Api::customResource(client.clone(), "workflows")
