@@ -54,6 +54,8 @@ pub struct GordoStatus {
     pub n_models: usize,
     #[serde(rename = "submission-status", default)]
     pub submission_status: GordoSubmissionStatus,
+    #[serde(rename = "phase", default)]
+    pub phase: GordoPhase,
     #[serde(rename = "n-models-built", default)]
     pub n_models_built: usize,
     #[serde(rename = "project-revision", default)]
@@ -66,6 +68,7 @@ impl From<&Gordo> for GordoStatus {
         let gordo_status = gordo.status.clone().unwrap_or_default();
         Self {
             submission_status,
+            phase: gordo_status.phase,
             n_models: gordo.spec.config.n_models(),
             n_models_built: gordo_status.n_models_built,
             project_revision: gordo_status.project_revision,
@@ -80,6 +83,24 @@ pub enum GordoSubmissionStatus {
 impl Default for GordoSubmissionStatus {
     fn default() -> GordoSubmissionStatus {
         GordoSubmissionStatus::Submitted(None)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum GordoPhase {
+    #[serde(alias = "unknown")]
+    Unknown,
+    #[serde(alias = "inProgress")]
+    InProgress,
+    #[serde(alias = "buildFailed")]
+    BuildFailed,
+    #[serde(alias = "buildSucceeded")]
+    BuildSucceeded,
+}
+
+impl Default for GordoPhase {
+    fn default() -> Self {
+        GordoPhase::Unknown
     }
 }
 
@@ -127,6 +148,8 @@ pub async fn start_gordo_deploy_job(
         Err(e) => error!("Failed to patch status: {:?}", e),
     };
 }
+
+
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
 pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {

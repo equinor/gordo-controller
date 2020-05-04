@@ -15,21 +15,28 @@ pub struct ModelSpec {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub enum ModelStatus {
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ModelStatus {
+    pub phase: ModelPhase,
+    pub code: Option<i32>,
+    pub message: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ModelPhase {
     #[serde(alias = "unknown")]
     Unknown,
     #[serde(alias = "inProgress")]
     InProgress,
     #[serde(alias = "buildFailed")]
-    BuildFailed(i32),
+    BuildFailed,
     #[serde(alias = "buildSucceeded")]
     BuildSucceeded,
 }
 
-impl Default for ModelStatus {
+impl Default for ModelPhase {
     fn default() -> Self {
-        ModelStatus::Unknown
+        ModelPhase::Unknown
     }
 }
 

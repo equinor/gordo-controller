@@ -5,7 +5,7 @@ use kube::api::{Api, Object, PatchParams};
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 
 use crate::Controller;
-use crate::crd::model::{Model, ModelStatus};
+use crate::crd::model::{Model, ModelStatus, ModelPhase};
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";
@@ -44,8 +44,8 @@ pub async fn monitor_pods(controller: &Controller) -> () {
 
     let models = controller.model_state().await;
     let status_patchers = models.iter()
-        .flat_map(move |model| match model.status {
-            Some(ModelStatus::Unknown) => {
+        .flat_map(move |model| match &model.status {
+            Some(status) => {
                 if running_pods.iter()
                     .any(move |pod| {
                         let model_labels = &model.metadata.labels;
@@ -54,13 +54,14 @@ pub async fn monitor_pods(controller: &Controller) -> () {
                             iter().
                             all(move |&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
                 }) {
-                    Some((ModelStatus::InProgress, model))
+                    let mut new_status = status.clone();
+                    new_status.phase = ModelPhase::InProgress;
+                    Some((new_status, model))
                 } else {
                     None
                 }
             },
-            None => Some((ModelStatus::Unknown, model)),
-            _ => None
+            None => Some((ModelStatus::default(), model)),
         }).map(|(new_status, model)| {
             update_model_status(
                 &controller.model_resource,
