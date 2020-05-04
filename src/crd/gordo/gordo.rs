@@ -109,10 +109,9 @@ impl Default for GordoPhase {
 pub async fn start_gordo_deploy_job(
     gordo: &Gordo,
     client: &APIClient,
-    resource: &Api<Gordo>,
     namespace: &str,
     env_config: &GordoEnvironmentConfig,
-) -> () {
+) -> Result<DeployJob, kube::Error> {
     // Job manifest for launching this gordo config into a workflow
     let job = DeployJob::new(&gordo, &env_config);
 
@@ -125,14 +124,16 @@ pub async fn start_gordo_deploy_job(
     let jobs = Api::v1Job(client.clone()).within(&namespace);
 
     let serialized_job_manifest = serde_json::to_vec(&job).unwrap();
-    match jobs.create(&postparams, serialized_job_manifest).await {
-        Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
-        Err(e) => error!("Failed to submit job with error: {:?}", e),
-    }
+    jobs.create(&postparams, serialized_job_manifest).await?;
+    Ok(job)
+}
 
-    let mut status = GordoStatus::from(gordo);
-    status.project_revision = job.revision.to_owned();
 
+pub async fn patch_gordo_status(
+    gordo: &Gordo,
+    status: GordoStatus,
+    resource: &Api<Gordo>,
+) -> () {
     // Update the status of this job
     info!(
         "Setting status of this gordo '{}' to '{:?}'",

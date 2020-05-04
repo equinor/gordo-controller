@@ -1,6 +1,6 @@
 use futures::future::join_all;
 use kube::{api::Api, client::APIClient};
-use log::error;
+use log::{error, info};
 
 use crate::{Controller, GordoEnvironmentConfig};
 
@@ -51,7 +51,17 @@ async fn handle_gordo_state(
     };
 
     if should_start_deploy_job {
-        crate::crd::gordo::start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
+        let start_job_result = crate::crd::gordo::start_gordo_deploy_job(&gordo, &client, &namespace, &env_config).await;
+        match start_job_result {
+            Ok(job) => {
+                info!("Submitted job: {:?}", job.metadata.name);
+                let mut status = GordoStatus::from(gordo);
+                status.project_revision = job.revision.to_owned();
+        
+                patch_gordo_status(gordo, status, resource).await;
+            }
+            Err(e) => error!("Failed to submit job with error: {:?}", e),
+        }
     }
 
     Ok(())
