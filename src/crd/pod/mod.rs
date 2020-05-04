@@ -19,7 +19,7 @@ const POD_MATCH_LABELS: &'static [&'static str] = &[
     "applications.gordo.equinor.com/model-name"
 ];
 
-async fn update_model_state(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) -> () {
+async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) -> () {
     let patch_params = PatchParams::default();
     let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
     let name = &model.metadata.name;
@@ -32,6 +32,7 @@ async fn update_model_state(model_resource: &Api<Model>, model: &Model, new_stat
 
 pub async fn monitor_pods(controller: &Controller) -> () {
     let pods = controller.pod_state().await;
+    //TODO to perform the pod-models matching in O(1) makes sense to do collect into some sort of HashMap here
     let running_pods: Vec<&Object<PodSpec, PodStatus>> = pods.iter()
         .filter(|pod| match pod.status.as_ref().and_then(|status| status.phase.as_ref()) {
                 Some(phase) => phase == RUNNING || phase == PENDING,
@@ -42,7 +43,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
     }
 
     let models = controller.model_state().await;
-    let state_patchers = models.iter()
+    let status_patchers = models.iter()
         .flat_map(move |model| match model.status {
             Some(ModelStatus::Unknown) => {
                 if running_pods.iter()
@@ -60,12 +61,12 @@ pub async fn monitor_pods(controller: &Controller) -> () {
             },
             None => Some((ModelStatus::Unknown, model)),
             _ => None
-        }).map(|(new_state, model)| {
-            update_model_state(
+        }).map(|(new_status, model)| {
+            update_model_status(
                 &controller.model_resource,
                 model,
-                new_state,
+                new_status,
             )
         });
-    join_all(state_patchers).await
+    join_all(status_patchers).await;
 }
