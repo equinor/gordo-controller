@@ -5,7 +5,7 @@ use log::info;
 
 #[actix_rt::main]
 async fn main() -> () {
-    std::env::set_var("RUST_LOG", "info,kube=info");
+    //TODO do not forget about RUST_LOG env in all deployment scripts
     env_logger::init();
 
     let env_config = envy::from_env::<GordoEnvironmentConfig>().unwrap_or_default();
