@@ -1,74 +1,71 @@
-use log::error;
-use crate::Controller;
-
-use crate::crd::model::{Model, ModelStatus};
-use kube::api::PatchParams;
+use log::{error, info};
+use futures::future::join_all;
 use serde_json::json;
+use kube::api::{Api, Object, PatchParams};
+use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 
-const PENDING: &str = "Pending";
-const RUNNING: &str = "Running";
-const SUCCEEDED: &str = "Succeeded";
-const FAILED: &str = "Failed";
-const UNKNOWN: &str = "Unknown";
+use crate::Controller;
+use crate::crd::model::{Model, ModelStatus};
 
-fn pod_phase_to_model_status(phase: String) -> Option<ModelStatus> {
-    let mut status = ModelStatus::Unknown;
-    if phase == PENDING || phase == RUNNING {
-        status = ModelStatus::InProgress;
-    } else if phase == SUCCEEDED {
-        status = ModelStatus::BuildSucceeded;
-    } else if phase == FAILED || phase == UNKNOWN {
-        status = ModelStatus::BuildFailed(1);
-    }
-    Some(status)
-}
+pub const PENDING: &str = "Pending";
+pub const RUNNING: &str = "Running";
+pub const SUCCEEDED: &str = "Succeeded";
+pub const FAILED: &str = "Failed";
+pub const UNKNOWN: &str = "Unknown";
 
-const MATCH_LABELS: &'static [&'static str] = &[
+const POD_MATCH_LABELS: &'static [&'static str] = &[
     "applications.gordo.equinor.com/project-name", 
     "applications.gordo.equinor.com/project-revision", 
     "applications.gordo.equinor.com/model-name"
 ];
 
+async fn update_model_state(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) -> () {
+    let patch_params = PatchParams::default();
+    let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
+    let name = &model.metadata.name;
+    if let Err(err) = model_resource.patch_status(name, &patch_params, patch).await {
+        error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
+    } else {
+        info!("Patching Model '{}' from status {:?} to {:?}", name, model.status, new_status);
+    }
+}
+
 pub async fn monitor_pods(controller: &Controller) -> () {
     let pods = controller.pod_state().await;
-    if pods.is_empty() {
+    let running_pods: Vec<&Object<PodSpec, PodStatus>> = pods.iter()
+        .filter(|pod| match pod.status.as_ref().and_then(|status| status.phase.as_ref()) {
+                Some(phase) => phase == RUNNING || phase == PENDING,
+                None => false
+        }).collect();
+    if running_pods.is_empty() {
         return
     }
 
     let models = controller.model_state().await;
-
-    for pod in pods {
-        let pod_phase = pod.status.unwrap().phase.unwrap_or("Undefined".to_string());
-        println!("Found pod '{}' in phase {}", pod.metadata.name, pod_phase);
-        let pod_labels = &pod.metadata.labels;
-        let found_models: Vec<&Model> = models.
-            iter().
-            filter(move |model| {
-                let model_labels = &model.metadata.labels;
-                MATCH_LABELS.
-                    iter().
-                    all(move |&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
-            }).
-            collect();
-        if !found_models.is_empty() {
-            if found_models.len() != 1 {
-                error!("Found more then one model for '{}' pod", pod.metadata.name);
-                continue;
-            }
-            let curr_model = found_models[0];
-            let model_status = pod_phase_to_model_status(pod_phase);
-            if curr_model.status != model_status {
-                let patch_params = PatchParams::default();
-                let patch = serde_json::to_vec(&json!({ "status": model_status })).unwrap();
-                let name = &curr_model.metadata.name;
-                if let Err(err) = controller.model_resource.patch_status(name, &patch_params, patch).await {
-                    error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
+    let state_patchers = models.iter()
+        .flat_map(move |model| match model.status {
+            Some(ModelStatus::Unknown) => {
+                if running_pods.iter()
+                    .any(move |pod| {
+                        let model_labels = &model.metadata.labels;
+                        let pod_labels = &pod.metadata.labels;
+                        POD_MATCH_LABELS.
+                            iter().
+                            all(move |&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
+                }) {
+                    Some((ModelStatus::InProgress, model))
                 } else {
-                    println!("Patching Model '{}' from status {:?} to {:?}", name, curr_model.status, model_status);
+                    None
                 }
-            }
-        } else {
-            println!("Found models list is empty")
-        }
-    }
+            },
+            None => Some((ModelStatus::Unknown, model)),
+            _ => None
+        }).map(|(new_state, model)| {
+            update_model_state(
+                &controller.model_resource,
+                model,
+                new_state,
+            )
+        });
+    join_all(state_patchers).await
 }
