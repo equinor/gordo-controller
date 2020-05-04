@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{error, info, debug};
 use futures::future::join_all;
 use serde_json::json;
 use kube::api::{Api, Object, PatchParams};
@@ -42,6 +42,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
         return
     }
 
+    debug!("Found {} pods ins state {} or {}", running_pods.len(), RUNNING, PENDING);
     let models = controller.model_state().await;
     let status_patchers = models.iter()
         .flat_map(move |model| match &model.status {
