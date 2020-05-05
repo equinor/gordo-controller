@@ -48,7 +48,7 @@ pub fn load_gordo_resource(client: &APIClient, namespace: &str) -> Api<Gordo> {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct GordoStatus {
     #[serde(rename = "n-models", default)]
     pub n_models: usize,
@@ -76,7 +76,7 @@ impl From<&Gordo> for GordoStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum GordoSubmissionStatus {
     Submitted(GenerationNumber),
 }
@@ -86,7 +86,7 @@ impl Default for GordoSubmissionStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum GordoPhase {
     #[serde(alias = "unknown")]
     Unknown,
