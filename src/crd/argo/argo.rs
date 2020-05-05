@@ -2,6 +2,7 @@ use kube::api::{Api, Object};
 use kube::client::APIClient;
 use serde::{Deserialize, Serialize};
 
+// Origin here https://github.com/argoproj/argo/blob/master/pkg/apis/workflow/v1alpha1/workflow_types.go#L34
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ArgoWorkflowPhase {
     Pending,
