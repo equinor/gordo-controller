@@ -13,7 +13,7 @@ pub const SUCCEEDED: &str = "Succeeded";
 pub const FAILED: &str = "Failed";
 pub const UNKNOWN: &str = "Unknown";
 
-const POD_MATCH_LABELS: &'static [&'static str] = &[
+pub const POD_MATCH_LABELS: &'static [&'static str] = &[
     "applications.gordo.equinor.com/project-name", 
     "applications.gordo.equinor.com/project-revision", 
     "applications.gordo.equinor.com/model-name"

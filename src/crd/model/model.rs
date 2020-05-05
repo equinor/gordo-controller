@@ -19,6 +19,7 @@ pub struct ModelSpec {
 pub struct ModelStatus {
     pub phase: ModelPhase,
     pub code: Option<i32>,
+    pub error_type: Option<String>,
     pub message: Option<String>,
 }
 

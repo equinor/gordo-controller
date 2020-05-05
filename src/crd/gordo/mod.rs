@@ -1,9 +1,14 @@
-use log::{error, info};
+use log::{error, info, warn, debug};
 
 use crate::Controller;
 use crate::crd::gordo::start_gordo_deploy_job;
 use crate::crd::argo::{ArgoWorkflow, ArgoWorkflowPhase};
-use crate::crd::model::{Model, filter_models_on_gordo};
+use crate::crd::model::{Model, ModelStatus, ModelPhase, ModelPodTerminatedStatus, filter_models_on_gordo};
+use crate::crd::pod::POD_MATCH_LABELS;
+
+use k8s_openapi::api::core::v1::ContainerStateTerminated;
+use chrono::MIN_DATE;
+use serde_json::Value;
 
 pub mod gordo;
 pub use gordo::*;
@@ -74,7 +79,51 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                     let models = controller.model_state().await;
                                     let gordo_models: Vec<&Model> = filter_models_on_gordo(&gordo, &models).collect();
                                     if phase == GordoPhase::BuildFailed {
-
+                                        let pods = controller.pod_state().await;
+                                        for model in gordo_models {
+                                            let model_labels = model.metadata.labels.clone();
+                                            let orig_model_status = model.status.clone().unwrap_or_default();
+                                            let mut new_model_status = orig_model_status.clone();
+                                            new_model_status.phase = ModelPhase::BuildFailed;
+                                            if let Some(model_name) = model.metadata.labels.get("applications.gordo.equinor.com/model-name") {
+                                                let terminated_statuses: Vec<&ContainerStateTerminated> = pods.iter()
+                                                    .filter(|pod| {
+                                                        let pod_labels = &pod.metadata.labels;
+                                                        POD_MATCH_LABELS.
+                                                            iter().
+                                                            all(|&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
+                                                    })
+                                                    .flat_map(|pod| pod.status.as_ref())
+                                                    .flat_map(|pod_status| pod_status.container_statuses.as_ref())
+                                                    .flat_map(|container_statuses| container_statuses.iter().filter(|status| status.name == "main"))
+                                                    .flat_map(|container_status| container_status.state.as_ref())
+                                                    .flat_map(|state| state.terminated.as_ref())
+                                                    .collect();
+                                                if terminated_statuses.len() > 0 {
+                                                    let min_date_time = MIN_DATE.clone().and_hms(0, 0, 0);
+                                                    let last_terminated_state_ind = terminated_statuses.iter()
+                                                        .enumerate()
+                                                        .max_by_key(|(_, terminated_state)| match &terminated_state.finished_at {
+                                                            Some(finished_at) => finished_at.0,
+                                                            None => min_date_time,
+                                                        })
+                                                        .map(|(ind, _)| ind)
+                                                        .unwrap_or(0);
+                                                    let terminated_status = terminated_statuses[last_terminated_state_ind];
+                                                    new_model_status.code = Some(terminated_status.exit_code);
+                                                    if let Some(message) = &terminated_status.message {
+                                                        let result: serde_json::Result<ModelPodTerminatedStatus> = serde_json::from_str(&message);
+                                                        match result {
+                                                            Ok(terminated_status_message) => {
+                                                                new_model_status.error_type = terminated_status_message.error_type.clone();
+                                                                new_model_status.message = terminated_status_message.message.clone();
+                                                            },
+                                                            Err(err) => warn!("Got JSON error where parsing pod's terminated message for model {}: {:?}", model_name, err),
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 },
                                 _ => (),
