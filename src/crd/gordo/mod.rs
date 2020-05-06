@@ -1,9 +1,10 @@
 use log::{error, info, warn, debug};
+use futures::future::join_all;
 
 use crate::Controller;
 use crate::crd::gordo::start_gordo_deploy_job;
 use crate::crd::argo::{ArgoWorkflow, ArgoWorkflowPhase};
-use crate::crd::model::{Model, ModelStatus, ModelPhase, ModelPodTerminatedStatus, filter_models_on_gordo};
+use crate::crd::model::{Model, ModelStatus, ModelPhase, ModelPodTerminatedStatus, filter_models_on_gordo, patch_model_status};
 use crate::crd::pod::POD_MATCH_LABELS;
 
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
@@ -78,6 +79,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                 GordoPhase::BuildSucceeded | GordoPhase::BuildFailed => {
                                     let models = controller.model_state().await;
                                     let gordo_models: Vec<&Model> = filter_models_on_gordo(&gordo, &models).collect();
+                                    let mut model_patch_features: Vec<_> = Vec::with_capacity(gordo_models.len());
                                     if phase == GordoPhase::BuildFailed {
                                         let pods = controller.pod_state().await;
                                         for model in gordo_models {
@@ -123,7 +125,28 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                                     }
                                                 }
                                             }
+                                            if new_model_status != orig_model_status {
+                                                model_patch_features.push(patch_model_status(&controller.model_resource, model, new_model_status))
+                                            }
                                         }
+                                    } else if phase == GordoPhase::BuildSucceeded {
+                                        for model in gordo_models {
+                                            let orig_model_status = model.status.clone().unwrap_or_default();
+                                            let mut new_model_status = orig_model_status.clone();
+                                            new_model_status.phase = ModelPhase::BuildFailed;
+                                            if new_model_status != orig_model_status {
+                                                model_patch_features.push(patch_model_status(&controller.model_resource, model, new_model_status))
+                                            }
+                                        }
+                                    }
+                                    if model_patch_features.len() > 0 {
+                                        info!("Patching statuses of {} models related to gordo with name '{}'", model_patch_features.len(), gordo.metadata.name);
+                                        let results = join_all(model_patch_features).await;
+                                        results.iter().for_each(|result| {
+                                            if let Err(err) = result {
+                                                error!("{:?}", err);
+                                            }
+                                        });
                                     }
                                 },
                                 _ => (),

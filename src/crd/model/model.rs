@@ -16,7 +16,7 @@ pub struct ModelSpec {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct ModelStatus {
     pub phase: ModelPhase,
     pub code: Option<i32>,
@@ -24,7 +24,7 @@ pub struct ModelStatus {
     pub message: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ModelPhase {
     #[serde(alias = "unknown")]
     Unknown,
