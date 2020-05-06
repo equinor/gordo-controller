@@ -5,7 +5,7 @@ use kube::api::{Api, Object, PatchParams};
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 
 use crate::Controller;
-use crate::crd::model::{Model, ModelStatus, ModelPhase};
+use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";
@@ -20,13 +20,9 @@ pub const POD_MATCH_LABELS: &'static [&'static str] = &[
 ];
 
 async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) -> () {
-    let patch_params = PatchParams::default();
-    let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
-    let name = &model.metadata.name;
-    if let Err(err) = model_resource.patch_status(name, &patch_params, patch).await {
-        error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
-    } else {
-        info!("Patching Model '{}' from status {:?} to {:?}", name, model.status, new_status);
+    match patch_model_status(model_resource, model, new_status).await {
+        Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
+        Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
     }
 }
 
@@ -67,7 +63,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
             update_model_status(
                 &controller.model_resource,
                 model,
-                new_status,
+                new_status.clone(),
             )
         });
     join_all(status_patchers).await;

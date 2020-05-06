@@ -1,8 +1,9 @@
 use crate::crd::gordo::Gordo;
-use kube::api::{Api, Object};
+use kube::api::{Api, Object, PatchParams};
 use kube::client::APIClient;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_json::json;
 
 pub type Model = Object<ModelSpec, ModelStatus>;
 
@@ -39,6 +40,13 @@ impl Default for ModelPhase {
     fn default() -> Self {
         ModelPhase::Unknown
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ModelPodTerminatedStatus {
+    #[serde(alias = "type")]
+    pub error_type: Option<String>,
+    pub message: Option<String>,
 }
 
 pub fn load_model_resource(client: &APIClient, namespace: &str) -> Api<Model> {
@@ -80,4 +88,11 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
             }
             None => false,
         })
+}
+
+pub async fn patch_model_status(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) -> kube::Result<Model> {
+    let patch_params = PatchParams::default();
+    let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
+    let name = &model.metadata.name;
+    model_resource.patch_status(name, &patch_params, patch).await
 }
