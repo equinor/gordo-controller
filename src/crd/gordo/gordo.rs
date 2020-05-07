@@ -66,7 +66,7 @@ impl From<&Gordo> for GordoStatus {
     fn from(gordo: &Gordo) -> Self {
         let submission_status = GordoSubmissionStatus::Submitted(gordo.metadata.generation.map(|v| v as u32));
         let gordo_status = gordo.status.clone().unwrap_or_default();
-        debug!("GordoStatus::from status {:?}", gordo_status);
+        info!("GordoStatus::from status {:?}", gordo_status);
         Self {
             submission_status,
             phase: gordo_status.phase,

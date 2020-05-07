@@ -50,7 +50,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
         let mut new_status = orig_status.clone();
     
         if should_start_deploy_job(&gordo) {
-            debug!("Starting deploy gordo '{}'", gordo.metadata.name);
+            info!("Starting deploy gordo '{}'", gordo.metadata.name);
             let start_job_result = start_gordo_deploy_job(&gordo, &controller.client, &controller.namespace, &controller.env_config).await;
             match start_job_result {
                 Ok(job) => {
@@ -60,7 +60,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                 Err(e) => error!("Failed to submit job with error: {:?}", e),
             }
         } else {
-            debug!("Processing one gordo '{}'", gordo.metadata.name);
+            info!("Processing one gordo '{}'", gordo.metadata.name);
             match orig_status.phase {
                 GordoPhase::Unknown | GordoPhase::InProgress => {
                     let gordo_labels = &gordo.metadata.labels;
@@ -72,7 +72,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                     all(move |&label_name| wf_labels.get(label_name) == gordo_labels.get(label_name))
                             }).collect();
                     if found_workflows.len() != 0 {
-                        debug!("Found {} workflows for gordo '{}'", found_workflows.len(), gordo.metadata.name);
+                        info!("Found {} workflows for gordo '{}'", found_workflows.len(), gordo.metadata.name);
                         let mut new_gordo_phase: Option<GordoPhase> = None;
                         if  some_of_workflows_in_phases(&found_workflows, vec![ArgoWorkflowPhase::Running]) {
                             new_gordo_phase = Some(GordoPhase::InProgress);
@@ -88,7 +88,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                 GordoPhase::BuildSucceeded | GordoPhase::BuildFailed => {
                                     let models = controller.model_state().await;
                                     let gordo_models: Vec<&Model> = filter_models_on_gordo(&gordo, &models).collect();
-                                    debug!("Found {} models for gordo {}", gordo_models.len(), gordo.metadata.name);
+                                    info!("Found {} models for gordo {}", gordo_models.len(), gordo.metadata.name);
                                     let mut model_patch_features: Vec<_> = Vec::with_capacity(gordo_models.len());
                                     if phase == GordoPhase::BuildFailed {
                                         let pods = controller.pod_state().await;
@@ -113,7 +113,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                                         .flat_map(|state| state.terminated.as_ref())
                                                         .collect();
                                                     if terminated_statuses.len() > 0 {
-                                                        debug!("Found {} pods with terminated containers for model '{}'", terminated_statuses.len(), model_name);
+                                                        info!("Found {} pods with terminated containers for model '{}'", terminated_statuses.len(), model_name);
                                                         let min_date_time = MIN_DATE.clone().and_hms(0, 0, 0);
                                                         let last_terminated_state_ind = terminated_statuses.iter()
                                                             .enumerate()
@@ -135,7 +135,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                                                 Err(err) => warn!("Got JSON error where parsing pod's terminated message for model {}: {:?}", model_name, err),
                                                             }
                                                         }
-                                                        debug!("New status for model {} will be {:?} ", model_name, new_model_status);
+                                                        info!("New status for model {} will be {:?} ", model_name, new_model_status);
                                                     }
                                                 }
                                                 if new_model_status != orig_model_status {
@@ -149,7 +149,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                             let mut new_model_status = orig_model_status.clone();
                                             new_model_status.phase = ModelPhase::BuildFailed;
                                             if new_model_status != orig_model_status {
-                                                debug!("Succeded model {}", model.metadata.name);
+                                                info!("Succeded model {}", model.metadata.name);
                                                 model_patch_features.push(patch_model_status(&controller.model_resource, model, new_model_status))
                                             }
                                         }
