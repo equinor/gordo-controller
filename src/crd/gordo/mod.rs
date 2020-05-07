@@ -5,7 +5,7 @@ use crate::Controller;
 use crate::crd::gordo::start_gordo_deploy_job;
 use crate::crd::argo::{ArgoWorkflow, ArgoWorkflowPhase};
 use crate::crd::model::{Model, ModelStatus, ModelPhase, ModelPodTerminatedStatus, filter_models_on_gordo, patch_model_status};
-use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
+use crate::crd::pod::POD_MATCH_LABELS;
 
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
@@ -85,19 +85,19 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                             info!("Apply change Gordo '{}' phase from {:?} to {:?}", gordo.metadata.name, orig_status.phase, phase);
                             new_status.phase = phase.clone();
                             match phase {
-                                GordoPhase::BuildSucceeded => {
+                                GordoPhase::BuildSucceeded | GordoPhase::BuildFailed => {
                                     let models = controller.model_state().await;
                                     let gordo_models: Vec<&Model> = filter_models_on_gordo(&gordo, &models).collect();
                                     info!("Found {} models for gordo {}", gordo_models.len(), gordo.metadata.name);
                                     let mut model_patch_features: Vec<_> = Vec::with_capacity(gordo_models.len());
-                                    if phase == GordoPhase::BuildSucceeded {
+                                    if phase == GordoPhase::BuildFailed {
                                         let pods = controller.pod_state().await;
                                         for model in gordo_models {
                                             let model_labels = model.metadata.labels.clone();
                                             let orig_model_status = model.status.clone().unwrap_or_default();
                                             if orig_model_status.phase != ModelPhase::BuildSucceeded {
                                                 let mut new_model_status = orig_model_status.clone();
-                                                new_model_status.phase = ModelPhase::BuildSucceeded;
+                                                new_model_status.phase = ModelPhase::BuildFailed;
                                                 if let Some(model_name) = model.metadata.labels.get("applications.gordo.equinor.com/model-name") {
                                                     let terminated_statuses: Vec<&ContainerStateTerminated> = pods.iter()
                                                         .filter(|pod| {
@@ -107,17 +107,12 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                                                 all(|&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
                                                         })
                                                         .flat_map(|pod| pod.status.as_ref())
-                                                        .filter(|pod_status| match &pod_status.phase {
-                                                            Some(phase) => phase == FAILED,
-                                                            None => false,
-                                                        })
                                                         .flat_map(|pod_status| pod_status.container_statuses.as_ref())
                                                         .flat_map(|container_statuses| container_statuses.iter().filter(|status| status.name == "main"))
                                                         .flat_map(|container_status| container_status.state.as_ref())
                                                         .flat_map(|state| state.terminated.as_ref())
                                                         .collect();
                                                     if terminated_statuses.len() > 0 {
-                                                        new_model_status.phase = ModelPhase::BuildFailed;
                                                         info!("Found {} pods with terminated containers for model '{}'", terminated_statuses.len(), model_name);
                                                         let min_date_time = MIN_DATE.clone().and_hms(0, 0, 0);
                                                         let last_terminated_state_ind = terminated_statuses.iter()
@@ -146,6 +141,16 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                                                 if new_model_status != orig_model_status {
                                                     model_patch_features.push(patch_model_status(&controller.model_resource, model, new_model_status))
                                                 }
+                                            }
+                                        }
+                                    } else if phase == GordoPhase::BuildSucceeded {
+                                        for model in gordo_models {
+                                            let orig_model_status = model.status.clone().unwrap_or_default();
+                                            let mut new_model_status = orig_model_status.clone();
+                                            new_model_status.phase = ModelPhase::BuildFailed;
+                                            if new_model_status != orig_model_status {
+                                                info!("Succeded model {}", model.metadata.name);
+                                                model_patch_features.push(patch_model_status(&controller.model_resource, model, new_model_status))
                                             }
                                         }
                                     }
