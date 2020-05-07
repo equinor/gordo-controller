@@ -58,6 +58,10 @@ pub async fn monitor_pods(controller: &Controller) -> () {
         })
         .collect();
 
+    if actual_pods_labels.len() > 0 {
+        debug!("Found {} {} or {} pods", actual_pods_labels.len(), RUNNING, SUCCEEDED);
+    }
+
     for model in actual_models {
         let new_model_status = match &model.status {
             Some(status) => {
@@ -72,6 +76,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
                     .map(|(phase, _)| phase)
                     .collect();
                 if pods_phases.len() > 0 {
+                    debug!("Found pods in phases {:?} for model {}", pods_phases, model.metadata.name);
                     let mut new_status = status.clone();
                     let mut new_phase = new_status.phase.clone();
                     if pods_phases.iter().all(|phase| *phase == SUCCEEDED) {
