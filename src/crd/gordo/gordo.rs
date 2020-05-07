@@ -3,7 +3,7 @@ use kube::{
     api::{Api, DeleteParams, ListParams, Object, PatchParams, PostParams},
     client::APIClient,
 };
-use log::{error, info};
+use log::{error, info, debug};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -66,6 +66,7 @@ impl From<&Gordo> for GordoStatus {
     fn from(gordo: &Gordo) -> Self {
         let submission_status = GordoSubmissionStatus::Submitted(gordo.metadata.generation.map(|v| v as u32));
         let gordo_status = gordo.status.clone().unwrap_or_default();
+        debug!("GordoStatus::from status {:?}", gordo_status);
         Self {
             submission_status,
             phase: gordo_status.phase,

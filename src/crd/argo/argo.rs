@@ -24,7 +24,7 @@ pub struct ArgoWorkflowSpec {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ArgoWorkflowStatus {
-    pub phase: ArgoWorkflowPhase,
+    pub phase: Option<ArgoWorkflowPhase>,
 }
 
 pub type ArgoWorkflow = Object<ArgoWorkflowSpec, ArgoWorkflowStatus>;

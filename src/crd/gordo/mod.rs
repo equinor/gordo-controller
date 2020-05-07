@@ -22,7 +22,10 @@ const WF_MATCH_LABELS: &'static [&'static str] = &[
 pub fn some_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
     workflows.iter()
         .any(|wf| match &wf.status {
-            Some(status) => (&phases).into_iter().find(|phase| &status.phase == *phase).is_some(),
+            Some(status) => match &status.phase {
+                Some(status_phase) => (&phases).into_iter().find(|phase| &status_phase == phase).is_some(),
+                None => false,
+            },
             _ => false,
         })
 }
@@ -30,7 +33,10 @@ pub fn some_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<A
 pub fn all_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
     workflows.iter()
         .all(|wf| match &wf.status {
-            Some(status) => (&phases).into_iter().find(|phase| &status.phase == *phase).is_some(),
+            Some(status) => match &status.phase {
+                Some(status_phase) => (&phases).into_iter().find(|phase| &status_phase == phase).is_some(),
+                None => false,
+            },
             _ => false,
         })
 }
@@ -44,6 +50,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
         let mut new_status = orig_status.clone();
     
         if should_start_deploy_job(&gordo) {
+            debug!("Starting deploy gordo '{}'", gordo.metadata.name);
             let start_job_result = start_gordo_deploy_job(&gordo, &controller.client, &controller.namespace, &controller.env_config).await;
             match start_job_result {
                 Ok(job) => {
@@ -53,6 +60,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
                 Err(e) => error!("Failed to submit job with error: {:?}", e),
             }
         } else {
+            debug!("Processing one gordo '{}'", gordo.metadata.name);
             match orig_status.phase {
                 GordoPhase::Unknown | GordoPhase::InProgress => {
                     let gordo_labels = &gordo.metadata.labels;

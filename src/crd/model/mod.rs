@@ -2,7 +2,7 @@ pub mod model;
 pub use model::*;
 
 use kube::api::PatchParams;
-use log::error;
+use log::{error, info};
 use serde_json::json;
 
 use crate::crd::gordo::GordoStatus;
@@ -14,8 +14,13 @@ pub async fn monitor_models(controller: &Controller) -> () {
 
     for model in &models {
         if let None = model.status {
-            let name = model.spec.config["name"].as_str().unwrap_or("unknown");
-            println!("Unknown status for model {}", name);
+            //TODO Update state here
+            //let name = model.spec.config["name"].as_str().unwrap_or("unknown");
+            info!("Unknown status for model {}", model.metadata.name);
+            match patch_model_status(&controller.model_resource, model, ModelStatus::default()).await {
+                Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
+                Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
+            }
         }
     }
 
