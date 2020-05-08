@@ -3,7 +3,7 @@ use kube::{
     api::{Api, DeleteParams, ListParams, Object, PatchParams, PostParams},
     client::APIClient,
 };
-use log::{error, info, debug};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -48,14 +48,12 @@ pub fn load_gordo_resource(client: &APIClient, namespace: &str) -> Api<Gordo> {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct GordoStatus {
     #[serde(rename = "n-models", default)]
     pub n_models: usize,
     #[serde(rename = "submission-status", default)]
     pub submission_status: GordoSubmissionStatus,
-    #[serde(rename = "phase", default)]
-    pub phase: GordoPhase,
     #[serde(rename = "n-models-built", default)]
     pub n_models_built: usize,
     #[serde(rename = "project-revision", default)]
@@ -66,10 +64,8 @@ impl From<&Gordo> for GordoStatus {
     fn from(gordo: &Gordo) -> Self {
         let submission_status = GordoSubmissionStatus::Submitted(gordo.metadata.generation.map(|v| v as u32));
         let gordo_status = gordo.status.clone().unwrap_or_default();
-        info!("GordoStatus::from status {:?}", gordo_status);
         Self {
             submission_status,
-            phase: gordo_status.phase,
             n_models: gordo.spec.config.n_models(),
             n_models_built: gordo_status.n_models_built,
             project_revision: gordo_status.project_revision,
@@ -77,7 +73,7 @@ impl From<&Gordo> for GordoStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum GordoSubmissionStatus {
     Submitted(GenerationNumber),
 }
@@ -87,32 +83,15 @@ impl Default for GordoSubmissionStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub enum GordoPhase {
-    #[serde(alias = "unknown")]
-    Unknown,
-    #[serde(alias = "inProgress")]
-    InProgress,
-    #[serde(alias = "buildFailed")]
-    BuildFailed,
-    #[serde(alias = "buildSucceeded")]
-    BuildSucceeded,
-}
-
-impl Default for GordoPhase {
-    fn default() -> Self {
-        GordoPhase::Unknown
-    }
-}
-
 /// Start a gordo-deploy job using this `Gordo`.
 /// Will patch the status of the `Gordo` to reflect the current revision number
 pub async fn start_gordo_deploy_job(
     gordo: &Gordo,
     client: &APIClient,
+    resource: &Api<Gordo>,
     namespace: &str,
     env_config: &GordoEnvironmentConfig,
-) -> Result<DeployJob, kube::Error> {
+) -> () {
     // Job manifest for launching this gordo config into a workflow
     let job = DeployJob::new(&gordo, &env_config);
 
@@ -125,16 +104,14 @@ pub async fn start_gordo_deploy_job(
     let jobs = Api::v1Job(client.clone()).within(&namespace);
 
     let serialized_job_manifest = serde_json::to_vec(&job).unwrap();
-    jobs.create(&postparams, serialized_job_manifest).await?;
-    Ok(job)
-}
+    match jobs.create(&postparams, serialized_job_manifest).await {
+        Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
+        Err(e) => error!("Failed to submit job with error: {:?}", e),
+    }
 
+    let mut status = GordoStatus::from(gordo);
+    status.project_revision = job.revision.to_owned();
 
-pub async fn patch_gordo_status(
-    gordo: &Gordo,
-    status: GordoStatus,
-    resource: &Api<Gordo>,
-) -> () {
     // Update the status of this job
     info!(
         "Setting status of this gordo '{}' to '{:?}'",
@@ -150,8 +127,6 @@ pub async fn patch_gordo_status(
         Err(e) => error!("Failed to patch status: {:?}", e),
     };
 }
-
-
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
 pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {
