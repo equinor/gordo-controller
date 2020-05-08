@@ -42,7 +42,7 @@ impl Default for ModelPhase {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ModelPodTerminatedStatus {
     #[serde(alias = "type")]
     pub error_type: Option<String>,
@@ -90,9 +90,8 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         })
 }
 
-pub async fn patch_model_status(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) -> kube::Result<Model> {
+pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: &'a str, new_status: ModelStatus) -> kube::Result<Model> {
     let patch_params = PatchParams::default();
     let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
-    let name = &model.metadata.name;
-    model_resource.patch_status(name, &patch_params, patch).await
+    model_resource.patch_status(model_name, &patch_params, patch).await
 }

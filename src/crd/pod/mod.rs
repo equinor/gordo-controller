@@ -20,7 +20,7 @@ pub const POD_MATCH_LABELS: &'static [&'static str] = &[
 ];
 
 async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) {
-    match patch_model_status(model_resource, model, new_status).await {
+    match patch_model_status(model_resource, &model.metadata.name, new_status).await {
         Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
         Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
     }
