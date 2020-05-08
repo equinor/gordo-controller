@@ -1,9 +1,9 @@
 pub mod argo;
 pub use argo::*;
 
-use futures::future::{join3, join_all};
-use log::{error, info, warn, debug};
-use kube::{api::Reflector, api::Object, client::APIClient, config::Configuration};
+use futures::future::join3;
+use log::{error, info, warn};
+use kube::api::Object;
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
@@ -11,7 +11,7 @@ use crate::Controller;
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
 
-const WF_MATCH_LABELS: &'static [&'static str] = &[
+pub const WF_MATCH_LABELS: &'static [&'static str] = &[
     "applications.gordo.equinor.com/project-name", 
     "applications.gordo.equinor.com/project-revision", 
 ];
@@ -97,7 +97,6 @@ fn last_container_terminated_status(terminated_statuses: Vec<&ContainerStateTerm
 pub async fn monitor_wf(controller: &Controller) -> () {
     let (workflows, models, pods) = join3(controller.wf_state(), controller.model_state(), controller.pod_state()).await;
 
-    //let mut model_patch_features: Vec<_> = Vec::new();
     for model in models {
         match &model.status {
             Some(model_status) => match &model_status.phase {
@@ -105,29 +104,28 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                     let found_workflows = find_model_workflows(&model, &workflows);
                     let mut new_model_phase: Option<ModelPhase> = None;
                     if some_of_workflows_in_phases(&found_workflows, vec![ArgoWorkflowPhase::Error, ArgoWorkflowPhase::Failed, ArgoWorkflowPhase::Skipped]) {
-                        new_model_phase = Some(ModelPhase::BuildFailed);
+                        new_model_phase = Some(ModelPhase::Failed);
                     } else if all_of_workflows_in_phases(&found_workflows, vec![ArgoWorkflowPhase::Succeeded]) {
-                        new_model_phase = Some(ModelPhase::BuildSucceeded);
+                        new_model_phase = Some(ModelPhase::Succeeded);
                     }
                     if let Some(model_phase) = new_model_phase {
                         let mut new_model_status = model_status.clone();
                         new_model_status.phase = model_phase.clone();
-                        info!("New phase for model {} will be {:?}", model.metadata.name, model_status);
-                        if model_phase == ModelPhase::BuildFailed {
+                        info!("New phase for the model '{}' will be {:?}", model.metadata.name, model_status);
+                        if model_phase == ModelPhase::Failed {
                             if let Some(model_name) = model.metadata.labels.get("applications.gordo.equinor.com/model-name") {
                                 let terminated_statuses = failed_pods_terminated_statuses(&model, &pods);
-                                info!("Found {} teminated statuses for model {}", terminated_statuses.len(), model.metadata.name);
                                 if let Some(terminated_status) = last_container_terminated_status(terminated_statuses) {
                                     new_model_status.code = Some(terminated_status.exit_code);
                                     if let Some(message) = &terminated_status.message {
                                         let result: serde_json::Result<ModelPodTerminatedStatus> = serde_json::from_str(&message);
                                         match result {
                                             Ok(terminated_status_message) => {
-                                                info!("Last terminated status message {:?}", terminated_status_message);
+                                                info!("Last terminated status message {:?} for model '{}'", terminated_status_message, model_name);
                                                 new_model_status.error_type = terminated_status_message.error_type.clone();
                                                 new_model_status.message = terminated_status_message.message.clone();
                                             },
-                                            Err(err) => warn!("Got JSON error where parsing pod's terminated message for model {}: {:?}", model_name, err),
+                                            Err(err) => warn!("Got JSON error where parsing pod's terminated message for the model '{}': {:?}", model_name, err),
                                         }
                                     }
                                 }
@@ -145,13 +143,4 @@ pub async fn monitor_wf(controller: &Controller) -> () {
             _ => (),
         }
     }
-    /*if model_patch_features.len() > 0 {
-        info!("Patching statuses of {} models", model_patch_features.len());
-        let results = join_all(model_patch_features).await;
-        results.iter().for_each(|result| {
-            if let Err(err) = result {
-                error!("{:?}", err);
-            }
-        });
-    }*/
 }

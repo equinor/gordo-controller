@@ -30,10 +30,10 @@ pub enum ModelPhase {
     Unknown,
     #[serde(alias = "inProgress")]
     InProgress,
-    #[serde(alias = "buildFailed")]
-    BuildFailed,
-    #[serde(alias = "buildSucceeded")]
-    BuildSucceeded,
+    #[serde(alias = "failed")]
+    Failed,
+    #[serde(alias = "succeeded")]
+    Succeeded,
 }
 
 impl Default for ModelPhase {

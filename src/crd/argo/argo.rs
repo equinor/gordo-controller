@@ -5,12 +5,18 @@ use serde::{Deserialize, Serialize};
 // Origin here https://github.com/argoproj/argo/blob/master/pkg/apis/workflow/v1alpha1/workflow_types.go#L34
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ArgoWorkflowPhase {
+    #[serde(alias = "pending")]
     Pending,
-	Running,
-	Succeeded,
-	Skipped,
-	Failed,
-	Error,
+    #[serde(alias = "running")]
+    Running,
+    #[serde(alias = "succeeded")]
+    Succeeded,
+    #[serde(alias = "skipped")]
+    Skipped,
+    #[serde(alias = "failed")]
+    Failed,
+    #[serde(alias = "error")]
+    Error,
 }
 impl Default for ArgoWorkflowPhase {
     fn default() -> ArgoWorkflowPhase {

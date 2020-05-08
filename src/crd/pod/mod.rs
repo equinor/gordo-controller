@@ -1,8 +1,5 @@
-use log::{error, info, debug};
-use futures::future::join_all;
-use serde_json::json;
-use kube::api::{Api, Object, PatchParams};
-use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
+use log::{error, info};
+use kube::api::Api;
 
 use crate::Controller;
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
@@ -58,10 +55,6 @@ pub async fn monitor_pods(controller: &Controller) -> () {
         })
         .collect();
 
-    if actual_pods_labels.len() > 0 {
-        info!("Found {} {} or {} pods", actual_pods_labels.len(), RUNNING, SUCCEEDED);
-    }
-
     for model in actual_models {
         let new_model_status = match &model.status {
             Some(status) => {
@@ -76,11 +69,11 @@ pub async fn monitor_pods(controller: &Controller) -> () {
                     .map(|(phase, _)| phase)
                     .collect();
                 if pods_phases.len() > 0 {
-                    info!("Found pods in phases {:?} for model {}", pods_phases, model.metadata.name);
+                    info!("Found pods in phases {:?} for the model '{}'", pods_phases, model.metadata.name);
                     let mut new_status = status.clone();
                     let mut new_phase = new_status.phase.clone();
                     if pods_phases.iter().all(|phase| *phase == SUCCEEDED) {
-                        new_phase = ModelPhase::BuildSucceeded;
+                        new_phase = ModelPhase::Succeeded;
                     } else if pods_phases.iter().any(|phase| *phase == RUNNING) {
                         new_phase = ModelPhase::InProgress;
                     }
