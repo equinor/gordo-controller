@@ -26,7 +26,12 @@ pub async fn monitor_models(controller: &Controller) -> () {
 
     // Compare each Gordo's n-models-built against the total models currently found for that Gordo
     for gordo in gordos {
-        let n_models_built = filter_models_on_gordo(&gordo, &models).count();
+        let n_models_built = filter_models_on_gordo(&gordo, &models)
+            .filter(|model| match model.status.as_ref() {
+                Some(status) => status.phase == ModelPhase::Succeeded,
+                None => false,
+            })
+            .count();
 
         // If the gordo's current status of built models doesn't match the current models existing
         // we need to patch its status to reflect the actual models built for it.
