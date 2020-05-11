@@ -124,6 +124,7 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                                 info!("Last terminated status message {:?} for model '{}'", terminated_status_message, model_name);
                                                 new_model_status.error_type = terminated_status_message.error_type.clone();
                                                 new_model_status.message = terminated_status_message.message.clone();
+                                                new_model_status.traceback = terminated_status_message.traceback.clone();
                                             },
                                             Err(err) => warn!("Got JSON error where parsing pod's terminated message for the model '{}': {:?}", model_name, err),
                                         }

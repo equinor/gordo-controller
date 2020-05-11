@@ -22,6 +22,7 @@ pub struct ModelStatus {
     pub code: Option<i32>,
     pub error_type: Option<String>,
     pub message: Option<String>,
+    pub traceback: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -47,6 +48,7 @@ pub struct ModelPodTerminatedStatus {
     #[serde(alias = "type")]
     pub error_type: Option<String>,
     pub message: Option<String>,
+    pub traceback: Option<String>,
 }
 
 pub fn load_model_resource(client: &APIClient, namespace: &str) -> Api<Model> {
