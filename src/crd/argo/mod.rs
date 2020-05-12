@@ -104,7 +104,12 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                     let found_workflows = find_model_workflows(&model, &workflows);
                     let mut new_model_phase: Option<ModelPhase> = None;
                     if some_of_workflows_in_phases(&found_workflows, vec![ArgoWorkflowPhase::Error, ArgoWorkflowPhase::Failed, ArgoWorkflowPhase::Skipped]) {
-                        new_model_phase = Some(ModelPhase::Failed);
+                        // Back compatibility with old gordos. Just assume if the model ever has been created we suppose forced to update it as Suceedded
+                        if let None = model.metadata.labels.get("applications.gordo.equinor.com/model-name") {
+                            new_model_phase = Some(ModelPhase::Succeeded);
+                        } else {
+                            new_model_phase = Some(ModelPhase::Failed);
+                        }
                     } else if all_of_workflows_in_phases(&found_workflows, vec![ArgoWorkflowPhase::Succeeded]) {
                         new_model_phase = Some(ModelPhase::Succeeded);
                     }
