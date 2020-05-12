@@ -4,7 +4,7 @@ metadata:
   name: models.equinor.com
 spec:
   additionalPrinterColumns:
-    - JSONPath: .status
+    - JSONPath: .status.phase
       description: Current status of the model
       name: ModelStatus
       type: string
