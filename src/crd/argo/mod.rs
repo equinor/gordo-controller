@@ -115,6 +115,7 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                         if model_phase == ModelPhase::Failed {
                             if let Some(model_name) = model.metadata.labels.get("applications.gordo.equinor.com/model-name") {
                                 let terminated_statuses = failed_pods_terminated_statuses(&model, &pods);
+                                info!("Found {} failed pods with terminated status wich is related to the model '{}'", terminated_statuses.len(), model.metadata.name);
                                 if let Some(terminated_status) = last_container_terminated_status(terminated_statuses) {
                                     new_model_status.code = Some(terminated_status.exit_code);
                                     if let Some(message) = &terminated_status.message {
