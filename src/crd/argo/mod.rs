@@ -118,15 +118,18 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                 if let Some(terminated_status) = last_container_terminated_status(terminated_statuses) {
                                     new_model_status.code = Some(terminated_status.exit_code);
                                     if let Some(message) = &terminated_status.message {
-                                        let result: serde_json::Result<ModelPodTerminatedStatus> = serde_json::from_str(&message);
-                                        match result {
-                                            Ok(terminated_status_message) => {
-                                                info!("Last terminated status message {:?} for model '{}'", terminated_status_message, model_name);
-                                                new_model_status.error_type = terminated_status_message.error_type.clone();
-                                                new_model_status.message = terminated_status_message.message.clone();
-                                                new_model_status.traceback = terminated_status_message.traceback.clone();
-                                            },
-                                            Err(err) => warn!("Got JSON error where parsing pod's terminated message for the model '{}': {:?}", model_name, err),
+                                        let trimmed_message = message.trim_end();
+                                        if !trimmed_message.is_empty() {
+                                            let result: serde_json::Result<ModelPodTerminatedStatus> = serde_json::from_str(&trimmed_message);
+                                            match result {
+                                                Ok(terminated_status_message) => {
+                                                    info!("Last terminated status message {:?} for model '{}'", terminated_status_message, model_name);
+                                                    new_model_status.error_type = terminated_status_message.error_type.clone();
+                                                    new_model_status.message = terminated_status_message.message.clone();
+                                                    new_model_status.traceback = terminated_status_message.traceback.clone();
+                                                },
+                                                Err(err) => warn!("Got JSON error where parsing pod's terminated message for the model '{}': {:?}", model_name, err),
+                                            }
                                         }
                                     }
                                 }
