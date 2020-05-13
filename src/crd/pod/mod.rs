@@ -25,6 +25,8 @@ async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_sta
 
 pub async fn monitor_pods(controller: &Controller) -> () {
     let models = controller.model_state().await;
+
+    //Filtering only active models
     let actual_models: Vec<_> = models.into_iter()
         .filter(|model| match &model.status {
             Some(status) => status.phase == ModelPhase::Unknown || status.phase == ModelPhase::InProgress,
@@ -55,6 +57,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
         })
         .collect();
 
+    //Update models statuses according to phases of pods which is related to each of this model
     for model in actual_models {
         let new_model_status = match &model.status {
             Some(status) => {
