@@ -3,6 +3,7 @@ GORDO_CONTROLLER_IMG_NAME := equinor/gordo-controller
 
 test:
 	kubectl config use-context minikube
+	export RUST_LOG=info,kube=info
 	cargo test --tests -- --test-threads=1
 
 controller:

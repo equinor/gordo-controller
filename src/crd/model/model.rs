@@ -1,8 +1,9 @@
 use crate::crd::gordo::Gordo;
-use kube::api::{Api, Object};
+use kube::api::{Api, Object, PatchParams};
 use kube::client::APIClient;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_json::json;
 
 pub type Model = Object<ModelSpec, ModelStatus>;
 
@@ -15,22 +16,39 @@ pub struct ModelSpec {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ModelStatus {
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct ModelStatus {
+    pub phase: ModelPhase,
+    pub code: Option<i32>,
+    pub error_type: Option<String>,
+    pub message: Option<String>,
+    pub traceback: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum ModelPhase {
     #[serde(alias = "unknown")]
     Unknown,
     #[serde(alias = "inProgress")]
     InProgress,
-    #[serde(alias = "buildFailed")]
-    BuildFailed(String),
-    #[serde(alias = "buildSucceeded")]
-    BuildSucceeded,
+    #[serde(alias = "failed")]
+    Failed,
+    #[serde(alias = "succeeded")]
+    Succeeded,
 }
 
-impl Default for ModelStatus {
+impl Default for ModelPhase {
     fn default() -> Self {
-        ModelStatus::Unknown
+        ModelPhase::Unknown
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ModelPodTerminatedStatus {
+    #[serde(alias = "type")]
+    pub error_type: Option<String>,
+    pub message: Option<String>,
+    pub traceback: Option<String>,
 }
 
 pub fn load_model_resource(client: &APIClient, namespace: &str) -> Api<Model> {
@@ -72,4 +90,10 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
             }
             None => false,
         })
+}
+
+pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: &'a str, new_status: ModelStatus) -> kube::Result<Model> {
+    let patch_params = PatchParams::default();
+    let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
+    model_resource.patch_status(model_name, &patch_params, patch).await
 }
