@@ -85,12 +85,10 @@ jobs:
             fi
       - run:
           command: >
-            (ps aux | grep apt) &&
             sudo systemctl mask apt-daily.service apt-daily-upgrade.service &&
             sudo systemctl disable --now apt-daily.service apt-daily-upgrade.service &&
             sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer &&
-            sleep 30 &&
-            (ps aux | grep apt) &&
+            sleep 10 &&
             sudo apt-get install -y conntrack &&
             curl -Lo minikube
             https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
