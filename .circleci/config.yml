@@ -85,10 +85,9 @@ jobs:
             fi
       - run:
           command: >
-            systemctl stop apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer &&
             systemctl mask apt-daily.service apt-daily-upgrade.service &&
-            systemctl disable apt-daily.service apt-daily-upgrade.service &&
-            systemctl disable apt-daily.timer apt-daily-upgrade.timer &&
+            systemctl disable --now apt-daily.service apt-daily-upgrade.service &&
+            systemctl disable --now apt-daily.timer apt-daily-upgrade.timer &&
             (ps aux | grep apt) &&
             sudo apt-get install -y conntrack &&
             curl -Lo minikube
