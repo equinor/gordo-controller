@@ -85,6 +85,8 @@ jobs:
             fi
       - run:
           command: >
+            sudo ps aux | grep apt
+
             sudo apt-get install -y conntrack &&
             curl -Lo minikube
             https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
