@@ -88,7 +88,7 @@ jobs:
             sudo systemctl mask apt-daily.service apt-daily-upgrade.service &&
             sudo systemctl disable --now apt-daily.service apt-daily-upgrade.service &&
             sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer &&
-            sleep 10 &&
+            sleep 30 &&
             sudo apt-get update &&
             sudo apt-get install -y conntrack &&
             curl -Lo minikube
