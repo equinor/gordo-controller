@@ -85,7 +85,10 @@ jobs:
             fi
       - run:
           command: >
-            sudo systemctl stop apt-daily.service && sleep 30
+            sudo systemctl stop apt-daily.timer && \
+              systemctl disable apt-daily.timer && \
+              systemctl stop apt-daily.service && \
+              systemctl daemon-reload
 
             sudo echo "apt processes:" && (ps aux | grep apt)
 
