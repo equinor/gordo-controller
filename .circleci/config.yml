@@ -88,10 +88,7 @@ jobs:
             sudo systemctl stop apt-daily.timer &&
             sudo systemctl disable apt-daily.timer &&
             sudo systemctl stop apt-daily.service &&
-            sleep 30
-
-            sudo echo "apt processes:" && (ps aux | grep apt)
-
+            sleep 30 &&
             sudo apt-get install -y conntrack &&
             curl -Lo minikube
             https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
