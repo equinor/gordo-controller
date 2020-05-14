@@ -75,7 +75,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
                     info!("Found pods in phases {:?} for the model '{}'", pods_phases, model.metadata.name);
                     let mut new_status = status.clone();
                     let mut new_phase = new_status.phase.clone();
-                    if pods_phases.iter().all(|phase| *phase == SUCCEEDED) {
+                    if pods_phases.iter().any(|phase| *phase == SUCCEEDED) {
                         new_phase = ModelPhase::Succeeded;
                     } else if pods_phases.iter().any(|phase| *phase == RUNNING) {
                         new_phase = ModelPhase::InProgress;
