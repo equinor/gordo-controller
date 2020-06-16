@@ -41,7 +41,7 @@ fn all_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWo
 }
 
 fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [ArgoWorkflow]) -> Vec<&'a ArgoWorkflow> {
-    //TODO for performance reason we supposed to move this into BTreeMap 
+    //TODO for performance reason we supposed to reimplement this algorithm with BTreeMap 
     workflows
         .iter()
         .filter(|workflow| {
