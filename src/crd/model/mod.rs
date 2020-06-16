@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::crd::gordo::GordoStatus;
 use crate::Controller;
 
-pub async fn patch_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, kube::Error>{
+pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, kube::Error>{
     let mut status = ModelStatus::default();
     status.revision = match model.metadata.labels.get("applications.gordo.equinor.com/project-revision") {
         Some(revision) => Some(revision.to_string()),
@@ -26,7 +26,7 @@ pub async fn monitor_models(controller: &Controller) -> () {
             //TODO Update state here
             //let name = model.spec.config["name"].as_str().unwrap_or("unknown");
             info!("Unknown status for model {}", model.metadata.name);
-            match patch_with_default_status(&controller.model_resource, &model).await {
+            match patch_model_with_default_status(&controller.model_resource, &model).await {
                 Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
                 Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
             }
