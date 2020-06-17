@@ -23,6 +23,7 @@ pub struct ModelStatus {
     pub error_type: Option<String>,
     pub message: Option<String>,
     pub traceback: Option<String>,
+    pub revision: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
