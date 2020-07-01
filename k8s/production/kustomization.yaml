@@ -10,6 +10,5 @@ resources:
   - gordo-workflow-role-binding.yaml
   - priority-server.yaml
   - gordo-config-map.yaml
-  - istio.virtualservice.yaml
   - gordo-controller-svc.yaml
   - gordo-controller-istio.yaml
