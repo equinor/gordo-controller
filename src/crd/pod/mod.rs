@@ -90,7 +90,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
                     None
                 }
             },
-            None => Some(ModelStatus::default()),
+            None => None,
         };
         if let Some(new_status) = new_model_status {
             update_model_status(
