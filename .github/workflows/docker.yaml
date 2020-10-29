@@ -1,15 +1,13 @@
 name: Docker
 
-on: [push, pull_request]
-
-# on:
-#   release:
-#     types: [published, prereleased, edited]
-#   push:
-#     branches:
-#       - master
-#     tags:
-#       - "*"
+on:
+  release:
+    types: [published, prereleased, edited]
+  push:
+    branches:
+      - master
+    tags:
+      - "*"
 
 jobs:
   push-image:
