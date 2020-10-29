@@ -1,4 +1,4 @@
 # gordo-controller
 Gordo controller
 
-[![CircleCI](https://circleci.com/gh/equinor/gordo-controller.svg?style=svg)](https://circleci.com/gh/equinor/gordo-controller)
+[![CI](https://github.com/equinor/gordo-controller/workflows/CI/badge.svg)](https://github.com/equinor/gordo-controller/actions)
