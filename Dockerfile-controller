@@ -1,5 +1,5 @@
 # musl compiler
-FROM clux/muslrust as builder
+FROM clux/muslrust:stable as builder
 
 # Copy over manifests into a new 'bin' project
 RUN USER=root cargo init --bin --name gordo-controller
