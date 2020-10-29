@@ -1,0 +1,86 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test ${{ matrix.rust }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [stable]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt
+
+      - name: Cargo cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.rust }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install kubectl
+        run: |
+          sudo curl -L -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.19.0/bin/linux/amd64/kubectl
+          sudo chmod +x /usr/bin/kubectl
+
+      - name: Install kustomize
+        run: |
+          sudo curl -L -o /usr/bin/kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64
+          sudo chmod +x /usr/bin/kustomize
+
+      - name: Build all kustomize overlays
+        run: |
+          sudo kustomize build k8s/production
+          sudo kustomize build k8s/minikube
+
+      - name: Install minikube
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y conntrack
+          sudo curl -L -o /usr/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo chmod +x /usr/bin/minikube
+
+      - name: Start minikube
+        run: |
+          sudo minikube start --vm-driver=none
+
+          sudo chown -R $USER $HOME/.minikube $HOME/.kube
+          chmod -R u+wrx $HOME/.minikube $HOME/.kube
+
+          minikube update-context
+
+          kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
+
+          bash ci/wait_gordo_controller.sh
+
+      - name: Test CRDs
+        run: |
+          sudo kubectl get gordos > /dev/null
+          sudo kubectl get models > /dev/null
+
+      - name: Unit tests
+        uses: actions-rs/cargo@v1
+        env:
+          KUBERNETES_SERVICE_HOST: localhost
+          KUBERNETES_SERVICE_PORT: 8443
+        with:
+          command: test
+          args: --tests -- --test-threads=1
+
+      - name: Integration Tests
+        run: |
+          bash ci/integration_tests.sh
