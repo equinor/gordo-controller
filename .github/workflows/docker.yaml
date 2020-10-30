@@ -26,6 +26,7 @@ jobs:
         uses: docker/setup-buildx-action@v1
 
       - name: Prepare variables
+        id: prep
         env:
           DOCKER_REGISTRY: ${{ matrix.registry }}
         run: |
