@@ -23,6 +23,7 @@ pub struct GordoEnvironmentConfig {
     pub deploy_image: String,
     pub server_port: u16,
     pub server_host: String,
+    pub docker_registry: String,
 }
 impl Default for GordoEnvironmentConfig {
     fn default() -> Self {
@@ -30,6 +31,7 @@ impl Default for GordoEnvironmentConfig {
             deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
             server_port: 8888,
             server_host: "0.0.0.0".to_owned(),
+            docker_registry: "auroradevacr.azurecr.io".to_owned(),
         }
     }
 }
