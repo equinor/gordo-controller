@@ -48,6 +48,7 @@ impl DeployJob {
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_REVISION", &project_revision),
             // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
+            Self::env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &env_config.docker_registry),
         ];
 
         // push in any that were supplied by the Gordo.spec.gordo_environment mapping
