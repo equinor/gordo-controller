@@ -8,7 +8,10 @@ async fn main() -> () {
     //TODO do not forget about RUST_LOG env in all deployment scripts
     env_logger::init();
 
-    let env_config = envy::from_env::<GordoEnvironmentConfig>().unwrap_or_default();
+    let env_config: GordoEnvironmentConfig = match envy::from_env::<GordoEnvironmentConfig>() {
+       Ok(config) => config,
+       Err(error) => panic!("Failed to load environment config: {:#?}", error)
+    };
     info!("Starting with environment config: {:?}", &env_config);
 
     let kube_config = config::load_kube_config()

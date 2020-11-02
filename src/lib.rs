@@ -18,23 +18,34 @@ use crate::crd::{
 pub use deploy_job::DeployJob;
 use kube::api::Api;
 
+fn default_server_port() -> u16 {
+    8888
+}
+
+fn default_server_host() -> String {
+    String::from("0.0.0.0")
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
     pub deploy_image: String,
+    #[serde(default="default_server_port")]
     pub server_port: u16,
+    #[serde(default="default_server_host")]
     pub server_host: String,
     pub docker_registry: String,
 }
 impl Default for GordoEnvironmentConfig {
     fn default() -> Self {
         GordoEnvironmentConfig {
-            deploy_image: "auroradevacr.azurecr.io/gordo-infrastructure/gordo-deploy".to_owned(),
+            deploy_image: "gordo-infrastructure/gordo-deploy".to_owned(),
             server_port: 8888,
             server_host: "0.0.0.0".to_owned(),
-            docker_registry: "auroradevacr.azurecr.io".to_owned(),
+            docker_registry: "docker.io".to_owned(),
         }
     }
 }
+
 
 /// Load the `kube::Configuration` giving priority to local, falling back to in-cluster config
 pub async fn load_kube_config() -> Configuration {
