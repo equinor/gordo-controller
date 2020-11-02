@@ -27,7 +27,6 @@ jobs:
         env:
           DOCKER_PROD_REGISTRY: auroraprodacr.azurecr.io
           DOCKER_DEV_REGISTRY: auroradevacr.azurecr.io
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           DOCKER_DEV_IMAGE=${DOCKER_DEV_REGISTRY}/equinor/gordo-controller
           DOCKER_PROD_IMAGE=${DOCKER_PROD_REGISTRY}/equinor/gordo-controller
