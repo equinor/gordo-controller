@@ -42,7 +42,7 @@ jobs:
           if [[ $IMAGE_TYPE == "prod" ]]; then
             TAGS="$TAGS,${DOCKER_PROD_IMAGE}:latest,${DOCKER_PROD_IMAGE}:${GITHUB_SHA::8}"
             if [[ -n "$VERSION" ]]; then
-              TAGS="$TAGS,${DOCKER_PROD_IMAGE}:${VERSION}"
+              TAGS="$TAGS,${DOCKER_PROD_IMAGE}:${VERSION},${DOCKER_DEV_IMAGE}:${VERSION}"
             fi
           else
             if [[ -n "$VERSION" ]]; then
