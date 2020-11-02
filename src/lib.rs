@@ -35,6 +35,16 @@ pub struct GordoEnvironmentConfig {
     pub server_host: String,
     pub docker_registry: String,
 }
+impl Default for GordoEnvironmentConfig {
+    fn default() -> Self {
+        GordoEnvironmentConfig {
+            deploy_image: "gordo-infrastructure/gordo-deploy".to_owned(),
+            server_port: 8888,
+            server_host: "0.0.0.0".to_owned(),
+            docker_registry: "docker.io".to_owned(),
+        }
+    }
+}
 
 
 /// Load the `kube::Configuration` giving priority to local, falling back to in-cluster config
