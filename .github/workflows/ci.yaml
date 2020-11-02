@@ -38,12 +38,7 @@ jobs:
           sudo chmod +x /usr/bin/kubectl
 
       - name: Install kustomize
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_PATH: ${{ github.event_path }}
         run: |
-          echo $EVENT_NAME
-          echo $EVENT_PATH
           sudo curl -L -o /usr/bin/kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64
           sudo chmod +x /usr/bin/kustomize
 
