@@ -82,5 +82,8 @@ jobs:
           args: --tests -- --test-threads=1
 
       - name: Integration Tests
+        env:
+          DEPLOY_IMAGE: "gordo-infrastructure/gordo-deploy"
+          DOCKER_REGISTRY: "docker.io"
         run: |
           bash ci/integration_tests.sh
