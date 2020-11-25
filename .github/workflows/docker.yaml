@@ -79,7 +79,7 @@ jobs:
           tags: ${{ steps.prep.outputs.tags }}
           labels: |
             org.opencontainers.image.title=gordo-controller
-            org.opencontainers.image.description="Kubernetes controller for the Gordo CRD"
+            org.opencontainers.image.description=Kubernetes controller for the Gordo CRD
             org.opencontainers.image.url=https://github.com/equinor/gordo-controller
             org.opencontainers.image.version=${{ steps.prep.outputs.version }}
             org.opencontainers.image.created=${{ steps.prep.outputs.created }}
