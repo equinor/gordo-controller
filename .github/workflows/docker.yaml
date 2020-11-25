@@ -8,7 +8,6 @@ on:
       - master
     tags:
       - "*"
-  pull_request:
 
 jobs:
   push-image:
