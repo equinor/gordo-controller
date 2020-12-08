@@ -120,6 +120,7 @@ impl DeployJob {
         container.name = "gordo-deploy".to_string();
         container.image = Some(format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version));
         container.command = Some(vec!["bash".to_string(), "./run_workflow_and_argo.sh".to_string()]);
+        container.image_pull_policy = Some("Always".to_string());
         container.env = Some(environment);
         container.resources = Some(ResourceRequirements {
             limits: Some(BTreeMap::from_iter(
