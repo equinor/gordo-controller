@@ -115,10 +115,28 @@ impl DeployJob {
         spec_metadata
     }
 
+    fn deploy_image(gordo: &Gordo, env_config: &GordoEnvironmentConfig) -> String {
+        let docker_registry = match &gordo.spec.docker_registry {
+            Some(docker_registry) => docker_registry,
+            None => &env_config.docker_registry,
+        };
+        match &gordo.spec.deploy_repositry {
+            Some(deploy_repositry) => format!("{}/{}", docker_registry, deploy_repositry),
+            None => {
+                if !env_config.deploy_repositry.is_empty() {
+                    format!("{}/{}", docker_registry, env_config.deploy_repositry)
+                } else {
+                    env_config.deploy_image.clone()
+                }
+            }
+        }
+    }
+
     fn container(gordo: &Gordo, environment: Vec<EnvVar>, env_config: &GordoEnvironmentConfig) -> Container {
         let mut container = Container::default();
         container.name = "gordo-deploy".to_string();
-        container.image = Some(format!("{}:{}", &env_config.deploy_image, &gordo.spec.deploy_version));
+        let deploy_image = Self::deploy_image(gordo, env_config);
+        container.image = Some(format!("{}:{}", deploy_image, &gordo.spec.deploy_version));
         container.command = Some(vec!["bash".to_string(), "./run_workflow_and_argo.sh".to_string()]);
         container.image_pull_policy = Some("Always".to_string());
         container.env = Some(environment);

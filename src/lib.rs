@@ -18,6 +18,10 @@ use crate::crd::{
 pub use deploy_job::DeployJob;
 use kube::api::Api;
 
+fn default_deploy_repository() -> String {
+    "".to_string()
+}
+
 fn default_server_port() -> u16 {
     8888
 }
@@ -29,6 +33,8 @@ fn default_server_host() -> String {
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
     pub deploy_image: String,
+    #[serde(default="default_deploy_repository")]
+    pub deploy_repositry: String,
     #[serde(default="default_server_port")]
     pub server_port: u16,
     #[serde(default="default_server_host")]
@@ -39,6 +45,7 @@ impl Default for GordoEnvironmentConfig {
     fn default() -> Self {
         GordoEnvironmentConfig {
             deploy_image: "gordo-infrastructure/gordo-deploy".to_owned(),
+            deploy_repositry: "".to_owned(),
             server_port: 8888,
             server_host: "0.0.0.0".to_owned(),
             docker_registry: "docker.io".to_owned(),
