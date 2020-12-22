@@ -34,7 +34,7 @@ fn default_server_host() -> String {
 pub struct GordoEnvironmentConfig {
     pub deploy_image: String,
     #[serde(default="default_deploy_repository")]
-    pub deploy_repositry: String,
+    pub deploy_repository: String,
     #[serde(default="default_server_port")]
     pub server_port: u16,
     #[serde(default="default_server_host")]
@@ -45,7 +45,7 @@ impl Default for GordoEnvironmentConfig {
     fn default() -> Self {
         GordoEnvironmentConfig {
             deploy_image: "gordo-infrastructure/gordo-deploy".to_owned(),
-            deploy_repositry: "".to_owned(),
+            deploy_repository: "".to_owned(),
             server_port: 8888,
             server_host: "0.0.0.0".to_owned(),
             docker_registry: "docker.io".to_owned(),

@@ -20,8 +20,8 @@ pub struct GordoSpec {
     pub deploy_version: String,
     #[serde(rename = "deploy-environment")]
     pub deploy_environment: Option<HashMap<String, String>>,
-    #[serde(rename = "deploy-repositry")]
-    pub deploy_repositry: Option<String>,
+    #[serde(rename = "deploy-repository")]
+    pub deploy_repository: Option<String>,
     #[serde(rename = "docker-registry")]
     pub docker_registry: Option<String>,
     pub config: GordoConfig,

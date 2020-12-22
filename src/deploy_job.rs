@@ -120,11 +120,11 @@ impl DeployJob {
             Some(docker_registry) => docker_registry,
             None => &env_config.docker_registry,
         };
-        match &gordo.spec.deploy_repositry {
-            Some(deploy_repositry) => format!("{}/{}", docker_registry, deploy_repositry),
+        match &gordo.spec.deploy_repository {
+            Some(deploy_repository) => format!("{}/{}", docker_registry, deploy_repository),
             None => {
-                if !env_config.deploy_repositry.is_empty() {
-                    format!("{}/{}", docker_registry, env_config.deploy_repositry)
+                if !env_config.deploy_repository.is_empty() {
+                    format!("{}/{}", docker_registry, env_config.deploy_repository)
                 } else {
                     env_config.deploy_image.clone()
                 }
