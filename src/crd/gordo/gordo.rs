@@ -24,6 +24,8 @@ pub struct GordoSpec {
     pub deploy_repository: Option<String>,
     #[serde(rename = "docker-registry")]
     pub docker_registry: Option<String>,
+    #[serde(rename = "debug-show-workflow")]
+    pub debug_show_workflow: Option<bool>,
     pub config: GordoConfig,
 }
 

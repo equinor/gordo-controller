@@ -38,6 +38,10 @@ impl DeployJob {
         let owner_references = Self::owner_references(&gordo);
         let owner_ref_as_string = serde_json::to_string(&owner_references).unwrap();
         let project_revision = chrono::Utc::now().timestamp_millis().to_string();
+        let mut debug_show_workflow = "";
+        if gordo.spec.debug_show_workflow.unwrap_or(false) {
+            debug_show_workflow = "true"
+        }
 
         // Build up the gordo-deploy environment variables
         let mut environment: Vec<EnvVar> = vec![
@@ -50,6 +54,7 @@ impl DeployJob {
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
             Self::env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &env_config.docker_registry),
             Self::env_var("WORKFLOW_GENERATOR_GORDO_VERSION", &gordo.spec.deploy_version),
+            Self::env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
         ];
 
         // push in any that were supplied by the Gordo.spec.gordo_environment mapping
