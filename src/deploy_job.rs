@@ -54,7 +54,7 @@ impl DeployJob {
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
             Self::env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &env_config.docker_registry),
             Self::env_var("WORKFLOW_GENERATOR_GORDO_VERSION", &gordo.spec.deploy_version),
-            Self::env_var("DEBUG_SHOW_WORKFLOE", debug_show_workflow),
+            Self::env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
         ];
 
         // push in any that were supplied by the Gordo.spec.gordo_environment mapping
