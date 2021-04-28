@@ -1,0 +1,26 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "10:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: kube
+    versions:
+    - ">= 0.21.a, < 0.22"
+  - dependency-name: kube
+    versions:
+    - ">= 0.22.a, < 0.23"
+  - dependency-name: serde_json
+    versions:
+    - 1.0.61
+    - 1.0.62
+    - 1.0.63
+  - dependency-name: tokio-test
+    versions:
+    - 0.4.0
+  - dependency-name: actix-rt
+    versions:
+    - 1.1.1
