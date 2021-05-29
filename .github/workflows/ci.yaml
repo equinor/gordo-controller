@@ -58,7 +58,7 @@ jobs:
         run: |
           sudo minikube start --vm-driver=none
 
-          sudo mv /root/.kube /root/.minikube $HOME
+          sudo cp -R /root/.kube /root/.minikube $HOME
           sudo chown -R $USER $HOME/.kube $HOME/.minikube
 
           minikube update-context
