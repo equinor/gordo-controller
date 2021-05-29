@@ -55,6 +55,8 @@ jobs:
           sudo chmod +x /usr/bin/minikube
 
       - name: Start minikube
+        env:
+          CHANGE_MINIKUBE_NONE_USER: true
         run: |
           sudo minikube start --vm-driver=none
           minikube update-context
