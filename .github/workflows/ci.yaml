@@ -60,6 +60,8 @@ jobs:
           sudo minikube update-context
           sudo kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           sudo bash ci/wait_gordo_controller.sh
+          sudo cp -R /root/.kube /root/.minikube $HOME
+          sudo chown -R $USER $HOME/.kube $HOME/.minikube
 
       - name: Test CRDs
         run: |
