@@ -56,7 +56,6 @@ jobs:
 
       - name: Start minikube
         run: |
-          set -x
           export MINIKUBE_HOME=$HOME
           export CHANGE_MINIKUBE_NONE_USER=true
           export KUBECONFIG=$HOME/.kube/config
