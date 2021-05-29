@@ -55,14 +55,13 @@ jobs:
           sudo chmod +x /usr/bin/minikube
 
       - name: Start minikube
-        env:
-          CHANGE_MINIKUBE_NONE_USER: "true"
         run: |
           set -x
+          export MINIKUBE_HOME=$HOME
+          export CHANGE_MINIKUBE_NONE_USER=true
+          export KUBECONFIG=$HOME/.kube/config
           sudo minikube start --vm-driver=none
-          sudo minikube update-context
-          sudo cp -r /root/.kube /root/.minikube $HOME
-          sudo chown -R $USER $HOME/.kube $HOME/.minikube
+          minikube update-context
           ls -R $HOME/.kube
           ls -R $HOME/.minikube
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
