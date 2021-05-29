@@ -58,8 +58,8 @@ jobs:
         run: |
           sudo minikube start --vm-driver=none
 
-          sudo chown -R $USER $HOME/.minikube $HOME/.kube
-          chmod -R u+wrx $HOME/.minikube $HOME/.kube
+          sudo mv /root/.kube /root/.minikube $HOME
+          sudo chown -R $USER $HOME/.kube $HOME/.minikube
 
           minikube update-context
 
