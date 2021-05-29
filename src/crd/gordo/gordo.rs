@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::{DeployJob, GordoEnvironmentConfig};
+use crate::metrics::{kube_error_happened};
 
 pub type GenerationNumber = Option<u32>;
 pub type Gordo = Object<GordoSpec, GordoStatus>;
@@ -112,7 +113,10 @@ pub async fn start_gordo_deploy_job(
     let serialized_job_manifest = serde_json::to_vec(&job).unwrap();
     match jobs.create(&postparams, serialized_job_manifest).await {
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
-        Err(e) => error!("Failed to submit job with error: {:?}", e),
+        Err(e) => {
+          error!("Failed to submit job with error: {:?}", e);
+          kube_error_happened("submit_job", e);
+        }
     }
 
     let mut status = GordoStatus::from(gordo);
@@ -130,7 +134,10 @@ pub async fn start_gordo_deploy_job(
         .await
     {
         Ok(o) => info!("Patched status: {:?}", o.status),
-        Err(e) => error!("Failed to patch status: {:?}", e),
+        Err(e) => {
+          error!("Failed to patch status: {:?}", e);
+          kube_error_happened("patch_gordo", e);
+        }
     };
 }
 
@@ -165,16 +172,22 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespa
                                         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                                     }
                                 }
-                                Err(err) => error!(
+                                Err(err) => {
+                                  error!(
                                     "Failed to delete old gordo job: '{}' with error: {:?}",
                                     &job.metadata.name, err
-                                ),
+                                  );
+                                  kube_error_happened("delete_gordo", err);
+                                }
                             }
                         }
                     }),
             )
                 .await;
         }
-        Err(e) => error!("Failed to list jobs: {:?}", e),
+        Err(e) => {
+          error!("Failed to list jobs: {:?}", e);
+          kube_error_happened("list_gordo", e);
+        }
     }
 }

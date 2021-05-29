@@ -3,6 +3,7 @@ use kube::{api::Api, client::APIClient};
 use log::error;
 
 use crate::{Controller, GordoEnvironmentConfig};
+use crate::metrics::{KUBE_ERRORS};
 
 pub mod gordo;
 pub use gordo::*;
@@ -25,6 +26,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
     results.iter().for_each(|result| {
         if let Err(err) = result {
             error!("{:?}", err);
+            KUBE_ERRORS.with_label_values(&["monitor_gordos", "unknown"]).inc_by(1);
         }
     });
 }

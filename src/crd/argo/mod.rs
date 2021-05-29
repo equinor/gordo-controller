@@ -8,6 +8,7 @@ use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
 use crate::Controller;
+use crate::metrics::{kube_error_happened};
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
 
@@ -157,7 +158,10 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                 if model_phase != model_status.phase {
                                     match patch_model_status(&controller.model_resource, &model.metadata.name, new_model_status).await {
                                         Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
-                                        Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
+                                        Err(err) => {
+                                          error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
+                                          kube_error_happened("patch_model", err);
+                                        }
                                     }
                                 }
                             }
@@ -167,7 +171,10 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                 } else {
                     match patch_model_with_default_status(&controller.model_resource, &model).await {
                         Ok(new_model) => info!("Patching Model '{}' from status {:?} to default status {:?}", model.metadata.name, model.status, new_model.status),
-                        Err(err) => error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model.metadata.name, err),
+                        Err(err) => {
+                          error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model.metadata.name, err);
+                          kube_error_happened("patch_model", err);
+                        }
                     }
                 }
             }
