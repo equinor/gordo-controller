@@ -58,6 +58,7 @@ jobs:
         env:
           CHANGE_MINIKUBE_NONE_USER: "true"
         run: |
+          set -x
           sudo minikube start --vm-driver=none
           sudo minikube update-context
           sudo mv /root/.kube /root/.minikube $HOME
