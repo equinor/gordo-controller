@@ -60,8 +60,8 @@ jobs:
           export MINIKUBE_HOME=$HOME
           export CHANGE_MINIKUBE_NONE_USER=true
           export KUBECONFIG=$HOME/.kube/config
-          sudo minikube start --vm-driver=none
-          sudo minikube update-context
+          sudo -E minikube start --vm-driver=none
+          sudo -E minikube update-context
           minikube profile list
           ls -R $HOME/.kube
           ls -R $HOME/.minikube
