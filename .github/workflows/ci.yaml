@@ -60,7 +60,7 @@ jobs:
           export CHANGE_MINIKUBE_NONE_USER=true
           export KUBECONFIG=$HOME/.kube/config
           sudo -E minikube start --vm-driver=none
-          sudo -E minikube update-context
+          minikube update-context
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           bash ci/wait_gordo_controller.sh
 
