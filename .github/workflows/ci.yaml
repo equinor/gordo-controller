@@ -56,9 +56,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y conntrack
           sudo curl -L -o /usr/bin/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
-          echo "${MINIKUBE_SHA256}\t/usr/bin/minikube" > minikube.sha256
-          sha256sum -c minikube.sha256 /usr/bin/minikube
-          rm minikube.sha256
+          echo "${MINIKUBE_SHA256} /usr/bin/minikube" | sha256sum -c --status
           sudo chmod +x /usr/bin/minikube
 
       - name: Start minikube
