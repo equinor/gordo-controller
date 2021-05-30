@@ -76,6 +76,7 @@ jobs:
           KUBECONFIG: "/home/runner/.kube/config"
           RUST_BACKTRACE: "1"
         run: |
+          ls -l /home/runner/.kube/config
           cargo test --tests -- --test-threads=1
 
       - name: Integration Tests
