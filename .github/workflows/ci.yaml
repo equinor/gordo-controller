@@ -56,28 +56,30 @@ jobs:
 
       - name: Start minikube
         run: |
-          export MINIKUBE_HOME=$HOME
-          export CHANGE_MINIKUBE_NONE_USER=true
-          export KUBECONFIG=$HOME/.kube/config
-          sudo -E minikube start --vm-driver=none
+          sudo minikube start --vm-driver=none
+
+          sudo chown -R $USER $HOME/.minikube $HOME/.kube
+          chmod -R u+wrx $HOME/.minikube $HOME/.kube
+
           minikube update-context
+
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
+
           bash ci/wait_gordo_controller.sh
 
       - name: Test CRDs
         run: |
-          kubectl get gordos > /dev/null
-          kubectl get models > /dev/null
+          sudo kubectl get gordos > /dev/null
+          sudo kubectl get models > /dev/null
 
       - name: Unit tests
+        uses: actions-rs/cargo@v1
         env:
           KUBERNETES_SERVICE_HOST: localhost
           KUBERNETES_SERVICE_PORT: 8443
-          KUBECONFIG: "/home/runner/.kube/config"
-          RUST_BACKTRACE: "1"
-        run: |
-          ls -l /home/runner/.kube/config
-          cargo test --tests -- --test-threads=1
+        with:
+          command: test
+          args: --tests -- --test-threads=1
 
       - name: Integration Tests
         env:
