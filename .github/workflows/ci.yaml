@@ -65,16 +65,14 @@ jobs:
           MINIKUBE_HOME: ${{env.HOME}}
           CHANGE_MINIKUBE_NONE_USER: "true"
           KUBECONFIG: ${{env.HOME}}/.kube/config
-
         run: |
-          sudo minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none
+          set -e
 
+          sudo -E minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
-
           minikube update-context
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
-
           bash ci/wait_gordo_controller.sh
 
       - name: Test CRDs
