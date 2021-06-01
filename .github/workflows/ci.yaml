@@ -62,9 +62,9 @@ jobs:
       - name: Start minikube
         env:
           KUBERNETES_VERSION: v1.18.17
-          MINIKUBE_HOME: ${{env.HOME}}
+          MINIKUBE_HOME: /home/runner
           CHANGE_MINIKUBE_NONE_USER: "true"
-          KUBECONFIG: ${{env.HOME}}/.kube/config
+          KUBECONFIG: /home/runner/.kube/config
         run: |
           set -e
 
