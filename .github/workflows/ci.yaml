@@ -77,8 +77,8 @@ jobs:
 
       - name: Test CRDs
         run: |
-          sudo kubectl get gordos > /dev/null
-          sudo kubectl get models > /dev/null
+          kubectl get gordos > /dev/null
+          kubectl get models > /dev/null
 
       - name: Unit tests
         uses: actions-rs/cargo@v1
