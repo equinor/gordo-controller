@@ -79,7 +79,6 @@ jobs:
         run: |
           kubectl get gordos > /dev/null
           kubectl get models > /dev/null
-          cat /home/runner/.kube/config
 
       - name: Unit tests
         uses: actions-rs/cargo@v1
