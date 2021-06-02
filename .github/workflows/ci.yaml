@@ -58,6 +58,8 @@ jobs:
           sudo curl -L -o /usr/bin/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
           echo "${MINIKUBE_SHA256} /usr/bin/minikube" | sha256sum -c --status
           sudo chmod +x /usr/bin/minikube
+          echo https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
+          minikube version
 
       - name: Start minikube
         env:
@@ -72,9 +74,9 @@ jobs:
             echo "Exists"
           fi
           minikube version
+          whereis minikube
           sudo -E minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
-          minikube version
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           bash ci/wait_gordo_controller.sh
