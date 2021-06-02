@@ -68,9 +68,13 @@ jobs:
         run: |
           set -e
 
+          if [ -f "$HOME/.kube/config" ]; then
+            echo "Exists"
+          fi
+          minikube version
           sudo -E minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
-          cat $HOME/.kube/config
+          minikube version
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           bash ci/wait_gordo_controller.sh
