@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export DEPLOY_IMAGE=docker.io/gordo/gordo-deploy
+export DOCKER_REGISTRY=docker.io
+
 SLEEP_TIMEOUT=10
 
 cargo run &

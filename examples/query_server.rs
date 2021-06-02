@@ -38,6 +38,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     assert!(resp.is_empty());
 
+    let body = reqwest::get("http://0.0.0.0:8888/metrics")
+        .await?
+        .text()
+        .await?;
+
+    assert!(body.contains("gordo_controller_http_requests_total"))
+
     // Apply a Gordo and Model
     let gordo: Value = read_manifest("example-gordo.yaml");
     let gordo: Gordo = serde_json::from_value(gordo).unwrap();
