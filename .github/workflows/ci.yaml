@@ -70,6 +70,7 @@ jobs:
 
           sudo -E minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
+          cat $HOME/.kube/config
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           bash ci/wait_gordo_controller.sh
