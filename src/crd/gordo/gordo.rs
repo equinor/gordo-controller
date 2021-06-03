@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use crate::{DeployJob, GordoEnvironmentConfig};
-use crate::metrics::{kube_error_happened};
+use crate::crd::metrics::{kube_error_happened};
 
 pub type GenerationNumber = Option<u32>;
 pub type Gordo = Object<GordoSpec, GordoStatus>;

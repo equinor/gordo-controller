@@ -8,7 +8,6 @@ use serde::Deserialize;
 pub mod crd;
 pub mod deploy_job;
 pub mod views;
-pub mod metrics;
 
 use crate::crd::{
     gordo::{load_gordo_resource, monitor_gordos, Gordo},
@@ -159,7 +158,7 @@ pub async fn controller_init(
         loop {
             if let Err(err) = c1.poll().await {
                 error!("Controller polling encountered an error: {:?}", err);
-                metrics::KUBE_ERRORS.with_label_values(&["controller_polling"]).inc_by(1);
+                crd::metrics::KUBE_ERRORS.with_label_values(&["controller_polling"]).inc_by(1);
             }
         }
     });

@@ -3,7 +3,7 @@ use kube::{api::Api, client::APIClient};
 use log::error;
 
 use crate::{Controller, GordoEnvironmentConfig};
-use crate::metrics::{KUBE_ERRORS};
+use crate::crd::metrics::{KUBE_ERRORS};
 
 pub mod gordo;
 pub use gordo::*;

@@ -3,7 +3,7 @@ use kube::api::Api;
 
 use crate::Controller;
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
-use crate::metrics::{kube_error_happened};
+use crate::crd::metrics::{kube_error_happened};
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";
