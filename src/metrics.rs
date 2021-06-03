@@ -1,5 +1,6 @@
-use prometheus::{Opts, IntCounterVec, Registry};
+use crate::crd::model::{ModelPhase};
 
+use prometheus::{Opts, IntCounterVec, IntGaugeVec, Registry};
 use lazy_static::lazy_static;
 use kube::{Error};
 
@@ -15,6 +16,11 @@ lazy_static! {
       Opts::new("errors", "gordo-controller errors")
       .namespace(METRICS_NAMESPACE),
       &["name"]
+    ).unwrap();
+    pub static ref MODEL_PHASES: IntGaugeVec = IntGaugeVec::new(
+      Opts::new("kube_errors", "gordo-controller k8s related errors")
+      .namespace(METRICS_NAMESPACE),
+      &["action", "kube_name"]
     ).unwrap();
 }
 
@@ -45,4 +51,24 @@ pub fn kube_error_happened(action: &str, err: Error) {
 
 pub fn error_happened(name: &str) {
   ERRORS.with_label_values(&[name]).inc_by(1);
+}
+
+
+//Number of phases + 1 for None
+const PHASES_COUNT: usize = 4 + 1;
+
+
+struct ModelPhasesMetrics {
+  metrics: [i64; PHASES_COUNT]
+}
+
+impl ModelPhasesMetrics {
+  fn new() -> Self {
+    ModelPhasesMetrics {
+      metrics: [0; PHASES_COUNT],
+    }
+  }
+
+  fn set_model_counts(phase: ModelPhase, count: i64) {
+  }
 }
