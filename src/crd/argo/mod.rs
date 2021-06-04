@@ -207,5 +207,5 @@ pub async fn monitor_wf(controller: &Controller) -> () {
           _ => (),
         };
     }
-    model_phases_metrics.apply_to_model_counts_gauge();
+    model_phases_metrics.apply_to_gauges();
 }

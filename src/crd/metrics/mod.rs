@@ -19,9 +19,14 @@ lazy_static! {
       &["name"]
     ).unwrap();
     pub static ref MODEL_COUNTS: IntGaugeVec = IntGaugeVec::new(
-      Opts::new("model_counts", "gordo-controller k8s related errors")
+      Opts::new("model_counts", "Number of models per projects and phases")
       .namespace(METRICS_NAMESPACE),
       &["project", "phase"]
+    ).unwrap();
+    pub static ref GORDO_PROJECTS: IntGaugeVec = IntGaugeVec::new(
+      Opts::new("gordo_projects", "One metric per gordo project")
+      .namespace(METRICS_NAMESPACE),
+      &["project"]
     ).unwrap();
 }
 
@@ -114,9 +119,14 @@ impl ModelPhasesMetrics {
     self.metrics[index] = self.metrics[index] + 1;
   }
 
-  pub fn apply_to_model_counts_gauge(&self) {
+  pub fn apply_to_gauges(&self) {
     let mut labels: [&str; 2] = ["", ""];
     let phase_labels = Self::phase_labels();
+    GORDO_PROJECTS.reset();
+    for (project, _) in &self.projects {
+        GORDO_PROJECTS.with_label_values(&[project]).set(1);
+    }
+    MODEL_COUNTS.reset();
     for (project, base_index) in &self.projects {
       labels[0] = project;
       for (model_phase, phase_label) in &phase_labels {
