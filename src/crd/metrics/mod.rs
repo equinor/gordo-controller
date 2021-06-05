@@ -128,13 +128,16 @@ fn update_gordo_projects(model_phases_metrics: &ModelPhasesMetrics) {
   // TODO consider to return Result<...> from this function
   let mut old_project = PROJECTS.lock().unwrap();
   let new_projects = &model_phases_metrics.projects;
-  for project in old_project.keys() {
-    let exists = match new_projects.get(project) {
-      Some(e) => true,
-      None => false,
-    };
-    GORDO_PROJECTS.with_label_values(&[project]).set(if exists { 1 } else { 0 });
-    old_project.insert(project.clone(), exists);
+  for (project, exists) in old_project.iter_mut() {
+    let new_exists = new_projects.contains_key(project);
+    if !new_exists {
+      GORDO_PROJECTS.with_label_values(&[project]).set(0);
+      *exists = false;
+    }
+  }
+  for project in new_projects.keys() {
+    GORDO_PROJECTS.with_label_values(&[project]).set(1);
+    old_project.insert(project.clone(), true);
   }
 }
 
