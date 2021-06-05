@@ -8,7 +8,7 @@ use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status, get_model_project};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
 use crate::Controller;
-use crate::crd::metrics::{kube_error_happened, error_happened, ModelPhasesMetrics};
+use crate::crd::metrics::{kube_error_happened, error_happened, ModelPhasesMetrics, apply_model_phases_metrics};
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
 
@@ -207,5 +207,5 @@ pub async fn monitor_wf(controller: &Controller) -> () {
           _ => (),
         };
     }
-    model_phases_metrics.apply_to_gauges();
+    apply_model_phases_metrics(&model_phases_metrics);
 }
