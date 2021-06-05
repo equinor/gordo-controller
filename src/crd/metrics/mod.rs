@@ -5,7 +5,6 @@ use std::sync::Mutex;
 use prometheus::{Opts, IntCounterVec, IntGaugeVec, Registry};
 use lazy_static::lazy_static;
 use kube::{Error};
-use std::process::exit;
 
 pub const METRICS_NAMESPACE: &str = "gordo_controller";
 
