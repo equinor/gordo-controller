@@ -1,9 +1,10 @@
 use futures::future::join_all;
 use kube::{api::Api, client::APIClient};
 use log::error;
+use std::collections::{HashSet};
 
 use crate::{Controller, GordoEnvironmentConfig};
-use crate::crd::metrics::{KUBE_ERRORS};
+use crate::crd::metrics::{KUBE_ERRORS, update_gordo_projects};
 
 pub mod gordo;
 pub use gordo::*;
@@ -22,6 +23,10 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
     }))
     .await;
 
+    let gordo_projects: HashSet<String> = gordos.into_iter()
+        .map(|gordo| { gordo.metadata.name })
+        .collect();
+
     // Log any errors in handling state
     results.iter().for_each(|result| {
         if let Err(err) = result {
@@ -29,6 +34,8 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
             KUBE_ERRORS.with_label_values(&["monitor_gordos", "unknown"]).inc_by(1);
         }
     });
+
+    update_gordo_projects(&gordo_projects);
 }
 
 async fn handle_gordo_state(

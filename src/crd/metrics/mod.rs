@@ -1,6 +1,6 @@
 use crate::crd::model::{ModelPhase, PHASES_COUNT};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use prometheus::{Opts, IntCounterVec, IntGaugeVec, Registry};
 use lazy_static::lazy_static;
@@ -124,24 +124,23 @@ fn phase_labels<'a>() -> [(ModelPhase, &'a str); PHASES_COUNT] {
   ];
 }
 
-fn update_gordo_projects(model_phases_metrics: &ModelPhasesMetrics) {
+pub fn update_gordo_projects(gordo_projects: &HashSet<String>) {
   // TODO consider to return Result<...> from this function
   let mut old_project = PROJECTS.lock().unwrap();
-  let new_projects = &model_phases_metrics.projects;
   for (project, exists) in old_project.iter_mut() {
-    let new_exists = new_projects.contains_key(project);
+    let new_exists = gordo_projects.contains(project);
     if !new_exists {
       GORDO_PROJECTS.with_label_values(&[project]).set(0);
       *exists = false;
     }
   }
-  for project in new_projects.keys() {
+  for project in gordo_projects {
     GORDO_PROJECTS.with_label_values(&[project]).set(1);
     old_project.insert(project.clone(), true);
   }
 }
 
-fn update_model_counts(model_phases_metrics: &ModelPhasesMetrics) {
+pub fn update_model_counts(model_phases_metrics: &ModelPhasesMetrics) {
   // TODO consider to return Result<...> from this function
   let old_project = PROJECTS.lock().unwrap();
   let new_projects = &model_phases_metrics.projects;
@@ -165,9 +164,4 @@ fn update_model_counts(model_phases_metrics: &ModelPhasesMetrics) {
       MODEL_COUNTS.with_label_values(&labels).set(metric);
     }
   }
-}
-
-pub fn apply_model_phases_metrics(model_phases_metrics: &ModelPhasesMetrics) {
-  update_gordo_projects(model_phases_metrics);
-  update_model_counts(model_phases_metrics);
 }
