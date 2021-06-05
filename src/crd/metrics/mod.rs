@@ -140,7 +140,7 @@ fn update_gordo_projects(model_phases_metrics: &ModelPhasesMetrics) {
 
 fn update_model_counts(model_phases_metrics: &ModelPhasesMetrics) {
   // TODO consider to return Result<...> from this function
-  let mut old_project = PROJECTS.lock().unwrap();
+  let old_project = PROJECTS.lock().unwrap();
   let new_projects = &model_phases_metrics.projects;
   let mut labels: [&str; 2] = ["", ""];
   let phase_labels = phase_labels();
