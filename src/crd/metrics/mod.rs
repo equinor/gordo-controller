@@ -1,9 +1,11 @@
 use crate::crd::model::{ModelPhase, PHASES_COUNT};
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 use prometheus::{Opts, IntCounterVec, IntGaugeVec, Registry};
 use lazy_static::lazy_static;
 use kube::{Error};
+use std::process::exit;
 
 pub const METRICS_NAMESPACE: &str = "gordo_controller";
 
@@ -28,6 +30,7 @@ lazy_static! {
       .namespace(METRICS_NAMESPACE),
       &["project"]
     ).unwrap();
+    pub static ref PROJECTS: Mutex<HashMap<String, bool>> = Mutex::new(HashMap::new());
 }
 
 pub fn custom_metrics(registry: &Registry) {
@@ -91,15 +94,6 @@ impl ModelPhasesMetrics {
     }
   }
 
-  fn phase_labels<'a>() -> [(ModelPhase, &'a str); PHASES_COUNT] {
-    return [
-      (ModelPhase::Unknown, "unknown"),
-      (ModelPhase::InProgress, "in_progress"),
-      (ModelPhase::Succeeded, "succeeded"),
-      (ModelPhase::Failed, "failed"),
-    ];
-  }
-
   fn get_project_index(&mut self, project: String) -> usize {
     match self.projects.get(&project) {
       Some(index) => *index,
@@ -119,23 +113,58 @@ impl ModelPhasesMetrics {
     let index = base_index + Self::get_index(phase);
     self.metrics[index] = self.metrics[index] + 1;
   }
+}
 
-  pub fn apply_to_gauges(&self) {
-    let mut labels: [&str; 2] = ["", ""];
-    let phase_labels = Self::phase_labels();
-    GORDO_PROJECTS.reset();
-    for (project, _) in &self.projects {
-        GORDO_PROJECTS.with_label_values(&[project]).set(1);
-    }
-    MODEL_COUNTS.reset();
-    for (project, base_index) in &self.projects {
-      labels[0] = project;
-      for (model_phase, phase_label) in &phase_labels {
-        labels[1] = phase_label;
-        let index = base_index + Self::get_index(model_phase.clone());
-        let metric = self.metrics[index];
-        MODEL_COUNTS.with_label_values(&labels).set(metric);
+fn phase_labels<'a>() -> [(ModelPhase, &'a str); PHASES_COUNT] {
+  return [
+    (ModelPhase::Unknown, "unknown"),
+    (ModelPhase::InProgress, "in_progress"),
+    (ModelPhase::Succeeded, "succeeded"),
+    (ModelPhase::Failed, "failed"),
+  ];
+}
+
+fn update_gordo_projects(model_phases_metrics: &ModelPhasesMetrics) {
+  // TODO consider to return Result<...> from this function
+  let mut old_project = PROJECTS.lock().unwrap();
+  let new_projects = &model_phases_metrics.projects;
+  for project in old_project.keys() {
+    let exists = match new_projects.get(project) {
+      Some(e) => true,
+      None => false,
+    };
+    GORDO_PROJECTS.with_label_values(&[project]).set(if exists { 1 } else { 0 });
+    old_project.insert(project.clone(), exists);
+  }
+}
+
+fn update_model_counts(model_phases_metrics: &ModelPhasesMetrics) {
+  // TODO consider to return Result<...> from this function
+  let mut old_project = PROJECTS.lock().unwrap();
+  let new_projects = &model_phases_metrics.projects;
+  let mut labels: [&str; 2] = ["", ""];
+  let phase_labels = phase_labels();
+  for (project, exists) in old_project.iter() {
+    labels[0] = project;
+    for (model_phase, phase_label) in &phase_labels {
+      labels[1] = phase_label;
+      let mut metric: i64 = 0;
+      if *exists {
+        // TODO move this part to ModelPhasesMetrics
+        metric = match new_projects.get(project) {
+          Some(base_index) => {
+            let index = base_index + ModelPhasesMetrics::get_index(model_phase.clone());
+            model_phases_metrics.metrics[index]
+          }
+          None => 0
+        }
       }
+      MODEL_COUNTS.with_label_values(&labels).set(metric);
     }
   }
+}
+
+pub fn apply_model_phases_metrics(model_phases_metrics: &ModelPhasesMetrics) {
+  update_gordo_projects(model_phases_metrics);
+  update_model_counts(model_phases_metrics);
 }
