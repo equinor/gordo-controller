@@ -14,8 +14,8 @@ lazy_static! {
       .namespace(METRICS_NAMESPACE),
       &["action", "kube_name"]
     ).unwrap();
-    pub static ref ERRORS: IntCounterVec = IntCounterVec::new(
-      Opts::new("errors", "gordo-controller errors")
+    pub static ref WARNINGS: IntCounterVec = IntCounterVec::new(
+      Opts::new("warnings", "gordo-controller warnings")
       .namespace(METRICS_NAMESPACE),
       &["name"]
     ).unwrap();
@@ -34,7 +34,7 @@ lazy_static! {
 
 pub fn custom_metrics(registry: &Registry) {
   registry.register(Box::new(KUBE_ERRORS.clone())).unwrap();
-  registry.register(Box::new(ERRORS.clone())).unwrap();
+  registry.register(Box::new(WARNINGS.clone())).unwrap();
   registry.register(Box::new(MODEL_COUNTS.clone())).unwrap();
   registry.register(Box::new(GORDO_PROJECTS.clone())).unwrap();
 }
@@ -59,8 +59,8 @@ pub fn kube_error_happened(action: &str, err: Error) {
   KUBE_ERRORS.with_label_values(&[action, kube_error_name(err)]).inc_by(1);
 }
 
-pub fn error_happened(name: &str) {
-  ERRORS.with_label_values(&[name]).inc_by(1);
+pub fn warning_happened(name: &str) {
+  WARNINGS.with_label_values(&[name]).inc_by(1);
 }
 
 

@@ -8,7 +8,7 @@ use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status, get_model_project};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
 use crate::Controller;
-use crate::crd::metrics::{kube_error_happened, error_happened, ModelPhasesMetrics, update_model_counts};
+use crate::crd::metrics::{kube_error_happened, warning_happened, ModelPhasesMetrics, update_model_counts};
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
 
@@ -155,7 +155,7 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                                         },
                                                         Err(err) => {
                                                           warn!("Got JSON error where parsing pod's terminated message for the model '{}': {:?}", model_name, err);
-                                                          error_happened("parse_terminated_message")
+                                                          warning_happened("parse_terminated_message")
                                                         }
                                                     }
                                                 }
