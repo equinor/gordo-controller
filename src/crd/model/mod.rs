@@ -7,6 +7,7 @@ use serde_json::json;
 
 use crate::crd::gordo::GordoStatus;
 use crate::Controller;
+use crate::crd::metrics::{kube_error_happened};
 
 pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, kube::Error>{
     let mut status = ModelStatus::default();
@@ -28,7 +29,10 @@ pub async fn monitor_models(controller: &Controller) -> () {
             info!("Unknown status for model {}", model.metadata.name);
             match patch_model_with_default_status(&controller.model_resource, &model).await {
                 Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
-                Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
+                Err(err) => {
+                  error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
+                  kube_error_happened("patch_gordo", err);
+                }
             }
         }
     }
@@ -60,6 +64,7 @@ pub async fn monitor_models(controller: &Controller) -> () {
                     "Failed to patch status of Gordo '{}' - error: {:?}",
                     &gordo.metadata.name, err
                 );
+                kube_error_happened("patch_gordo", err);
             }
         }
     }

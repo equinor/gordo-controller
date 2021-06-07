@@ -20,6 +20,9 @@ serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 tokio = { version = "0.2.12", features = ["full"] }
 futures = "0.3.4"
+prometheus = "0.8.0"
+actix-web-prom = "0.2.0"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 serde_yaml = "0.8.11"

@@ -5,9 +5,10 @@ use futures::future::join3;
 use log::{error, info, warn};
 use kube::api::Object;
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
-use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status};
+use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status, get_model_project};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
 use crate::Controller;
+use crate::crd::metrics::{kube_error_happened, warning_happened, ModelPhasesMetrics, update_model_counts};
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
 
@@ -106,16 +107,21 @@ fn last_container_terminated_status(terminated_statuses: Vec<&ContainerStateTerm
 }
 
 pub async fn monitor_wf(controller: &Controller) -> () {
+    // TODO this function definitely need to be refactored
     let (workflows, models, pods) = join3(controller.wf_state(), controller.model_state(), controller.pod_state()).await;
+    let mut model_phases_metrics = ModelPhasesMetrics::new(None);
 
     for model in models {
+      let labels = &model.metadata.labels;
+        let mut current_phase: Option<ModelPhase> = None;
+        let current_project: Option<String> = get_model_project(&model);
         match &model.status {
             Some(model_status) => { 
-                let labels = &model.metadata.labels;
                 let is_reapplied_model = match (&model_status.revision, labels.get("applications.gordo.equinor.com/project-revision")) {
                     (Some(status_revision), Some(metadata_revision)) => status_revision != metadata_revision,
                     _ => false,
                 };
+                current_phase = Some(model_status.phase.clone());
                 if !is_reapplied_model { 
                     match &model_status.phase {
                         ModelPhase::InProgress | ModelPhase::Unknown => {
@@ -147,7 +153,10 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                                             new_model_status.message = terminated_status_message.message.clone();
                                                             new_model_status.traceback = terminated_status_message.traceback.clone();
                                                         },
-                                                        Err(err) => warn!("Got JSON error where parsing pod's terminated message for the model '{}': {:?}", model_name, err),
+                                                        Err(err) => {
+                                                          warn!("Got JSON error where parsing pod's terminated message for the model '{}': {:?}", model_name, err);
+                                                          warning_happened("parse_terminated_message")
+                                                        }
                                                     }
                                                 }
                                             }
@@ -156,8 +165,17 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                 }
                                 if model_phase != model_status.phase {
                                     match patch_model_status(&controller.model_resource, &model.metadata.name, new_model_status).await {
-                                        Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
-                                        Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
+                                        Ok(new_model) => {
+                                          info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status);
+                                          current_phase = match new_model.status {
+                                            Some(status) => Some(status.phase),
+                                            None => None,
+                                          }
+                                        }
+                                        Err(err) => {
+                                          error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
+                                          kube_error_happened("patch_model", err);
+                                        }
                                     }
                                 }
                             }
@@ -166,12 +184,28 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                     }
                 } else {
                     match patch_model_with_default_status(&controller.model_resource, &model).await {
-                        Ok(new_model) => info!("Patching Model '{}' from status {:?} to default status {:?}", model.metadata.name, model.status, new_model.status),
-                        Err(err) => error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model.metadata.name, err),
+                        Ok(new_model) => {
+                          info!("Patching Model '{}' from status {:?} to default status {:?}", model.metadata.name, model.status, new_model.status);
+                          current_phase = match new_model.status {
+                            Some(status) => Some(status.phase),
+                            None => None,
+                          }
+                        }
+                        Err(err) => {
+                          error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model.metadata.name, err);
+                          kube_error_happened("patch_model", err);
+                        }
                     }
                 }
             }
             _ => (),
-        }
+        };
+        match (current_project, current_phase) {
+          (Some(project), Some(phase)) => {
+            model_phases_metrics.inc_model_counts(project, phase);
+          },
+          _ => (),
+        };
     }
+    update_model_counts(&model_phases_metrics);
 }

@@ -3,6 +3,7 @@ use kube::api::Api;
 
 use crate::Controller;
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
+use crate::crd::metrics::{kube_error_happened};
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";
@@ -19,7 +20,10 @@ pub const POD_MATCH_LABELS: &'static [&'static str] = &[
 async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) {
     match patch_model_status(model_resource, &model.metadata.name, new_status).await {
         Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
-        Err(err) => error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err),
+        Err(err) => {
+          error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
+          kube_error_happened("faild_to_patch_model", err);
+        }
     }
 }
 

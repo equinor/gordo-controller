@@ -37,6 +37,7 @@ pub enum ModelPhase {
     #[serde(alias = "succeeded")]
     Succeeded,
 }
+pub const PHASES_COUNT: usize = 4;
 
 impl Default for ModelPhase {
     fn default() -> Self {
@@ -97,4 +98,13 @@ pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: 
     let patch_params = PatchParams::default();
     let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
     model_resource.patch_status(model_name, &patch_params, patch).await
+}
+
+pub fn get_model_project<'a>(model: &'a Model) -> Option<String> {
+  for ownerReference in &model.metadata.ownerReferences {
+    if ownerReference.kind.eq("Gordo") {
+      return Some(ownerReference.name.clone());
+    }
+  }
+  return None;
 }

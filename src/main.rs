@@ -1,5 +1,7 @@
 use actix_web::{middleware, web, App, HttpServer};
-use gordo_controller::{controller_init, views, GordoEnvironmentConfig};
+use gordo_controller::{controller_init, crd, views, GordoEnvironmentConfig};
+use actix_web_prom::PrometheusMetrics;
+use prometheus::{Registry};
 use kube::config;
 use log::info;
 
@@ -22,10 +24,17 @@ async fn main() -> () {
 
     let controller = controller_init(kube_config, env_config).await.unwrap();
 
+    let registry = Registry::new();
+    crd::metrics::custom_metrics(&registry);
+    let prometheus = PrometheusMetrics::new_with_registry(registry, crd::metrics::METRICS_NAMESPACE, Some("/metrics"), None).unwrap();
+
     HttpServer::new(move || {
         App::new()
             .data(controller.clone())
-            .wrap(middleware::Logger::default().exclude("/health"))
+            .wrap(prometheus.clone())
+            .wrap(middleware::Logger::default()
+                    .exclude("/health")
+                    .exclude("/metrics"))
             .wrap(middleware::Compress::default())
             .service(web::resource("/health").to(views::health))
             .service(web::resource("/gordos").to(views::gordos))

@@ -48,29 +48,37 @@ jobs:
           sudo kustomize build k8s/minikube
 
       - name: Install minikube
+        env:
+          MINIKUBE_VERSION: v1.16.0
+          MINIKUBE_SHA256: "af29a48b2d79075f9d57be3a28724eef2cd628bb87283ed58dd72cbe1f8967c4"
         run: |
+          set -e
+
           sudo apt-get update
           sudo apt-get install -y conntrack
-          sudo curl -L -o /usr/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo curl -L -o /usr/bin/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
+          echo "${MINIKUBE_SHA256} /usr/bin/minikube" | sha256sum -c --status
           sudo chmod +x /usr/bin/minikube
 
       - name: Start minikube
+        env:
+          KUBERNETES_VERSION: v1.18.17
+          MINIKUBE_HOME: /home/runner
+          CHANGE_MINIKUBE_NONE_USER: "true"
+          KUBECONFIG: /home/runner/.kube/config
         run: |
-          sudo minikube start --vm-driver=none
+          set -e
 
+          sudo -E /usr/bin/minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
-          chmod -R u+wrx $HOME/.minikube $HOME/.kube
-
-          minikube update-context
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
-
           bash ci/wait_gordo_controller.sh
 
       - name: Test CRDs
         run: |
-          sudo kubectl get gordos > /dev/null
-          sudo kubectl get models > /dev/null
+          kubectl get gordos > /dev/null
+          kubectl get models > /dev/null
 
       - name: Unit tests
         uses: actions-rs/cargo@v1

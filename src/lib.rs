@@ -158,6 +158,7 @@ pub async fn controller_init(
         loop {
             if let Err(err) = c1.poll().await {
                 error!("Controller polling encountered an error: {:?}", err);
+                crd::metrics::KUBE_ERRORS.with_label_values(&["controller_polling"]).inc_by(1);
             }
         }
     });
