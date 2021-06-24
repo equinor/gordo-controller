@@ -4,7 +4,7 @@ use log::error;
 use std::collections::{HashSet};
 
 use crate::{Controller, GordoEnvironmentConfig};
-use crate::crd::metrics::{KUBE_ERRORS, update_gordo_projects};
+use crate::crd::metrics::{KUBE_ERRORS, update_gordo_projects, GORDO_PULLING};
 
 pub mod gordo;
 pub use gordo::*;
@@ -62,6 +62,6 @@ async fn handle_gordo_state(
     if should_start_deploy_job {
         crate::crd::gordo::start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
     }
-
+    GORDO_PULLING.with_label_values(&[]).inc();
     Ok(())
 }

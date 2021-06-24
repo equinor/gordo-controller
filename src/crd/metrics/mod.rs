@@ -2,7 +2,7 @@ use crate::crd::model::{ModelPhase, PHASES_COUNT};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
-use prometheus::{Opts, IntCounterVec, IntGaugeVec, Registry};
+use prometheus::{Opts, IntCounterVec, IntCounterVec, IntGaugeVec, Registry};
 use lazy_static::lazy_static;
 use kube::{Error};
 
@@ -28,6 +28,30 @@ lazy_static! {
       Opts::new("gordo_projects", "One metric per gordo project")
       .namespace(METRICS_NAMESPACE),
       &["project"]
+    ).unwrap();
+    pub static ref GORDO_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "gordo"),
+      &[]
+    ).unwrap();
+    pub static ref MODEL_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "model"),
+      &[]
+    ).unwrap();
+    pub static ref POD_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "pod"),
+      &[]
+    ).unwrap();
+    pub static ref ARGO_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "argo"),
+      &[]
     ).unwrap();
     pub static ref PROJECTS: Mutex<HashMap<String, bool>> = Mutex::new(HashMap::new());
 }

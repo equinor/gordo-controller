@@ -3,7 +3,7 @@ use kube::api::Api;
 
 use crate::Controller;
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
-use crate::crd::metrics::{kube_error_happened};
+use crate::crd::metrics::{kube_error_happened, GORDO_PULLING};
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";
@@ -104,4 +104,5 @@ pub async fn monitor_pods(controller: &Controller) -> () {
             ).await;
         }
     }
+    GORDO_PULLING.with_label_values(&[]).inc();
 }

@@ -7,7 +7,7 @@ use serde_json::json;
 
 use crate::crd::gordo::GordoStatus;
 use crate::Controller;
-use crate::crd::metrics::{kube_error_happened};
+use crate::crd::metrics::{kube_error_happened, MODEL_PULLING};
 
 pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, kube::Error>{
     let mut status = ModelStatus::default();
@@ -68,4 +68,5 @@ pub async fn monitor_models(controller: &Controller) -> () {
             }
         }
     }
+    MODEL_PULLING.with_label_values(&[]).inc();
 }
