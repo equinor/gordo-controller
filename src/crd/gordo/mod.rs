@@ -36,6 +36,8 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
     });
 
     update_gordo_projects(&gordo_projects);
+
+    GORDO_PULLING.with_label_values(&[]).inc();
 }
 
 async fn handle_gordo_state(
@@ -62,6 +64,5 @@ async fn handle_gordo_state(
     if should_start_deploy_job {
         crate::crd::gordo::start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
     }
-    GORDO_PULLING.with_label_values(&[]).inc();
     Ok(())
 }
