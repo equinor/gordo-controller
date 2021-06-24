@@ -2,7 +2,7 @@ use crate::crd::model::{ModelPhase, PHASES_COUNT};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
-use prometheus::{Opts, IntCounterVec, IntCounterVec, IntGaugeVec, Registry};
+use prometheus::{Opts, IntCounterVec, IntGaugeVec, Registry};
 use lazy_static::lazy_static;
 use kube::{Error};
 
