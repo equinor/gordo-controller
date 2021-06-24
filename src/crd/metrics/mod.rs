@@ -61,6 +61,10 @@ pub fn custom_metrics(registry: &Registry) {
   registry.register(Box::new(WARNINGS.clone())).unwrap();
   registry.register(Box::new(MODEL_COUNTS.clone())).unwrap();
   registry.register(Box::new(GORDO_PROJECTS.clone())).unwrap();
+  registry.register(Box::new(GORDO_PULLING.clone())).unwrap();
+  registry.register(Box::new(MODEL_PULLING.clone())).unwrap();
+  registry.register(Box::new(POD_PULLING.clone())).unwrap();
+  registry.register(Box::new(ARGO_PULLING.clone())).unwrap();
 }
 
 pub fn kube_error_name<'a>(err: Error) -> &'a str {
