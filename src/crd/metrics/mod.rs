@@ -29,6 +29,30 @@ lazy_static! {
       .namespace(METRICS_NAMESPACE),
       &["project"]
     ).unwrap();
+    pub static ref GORDO_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "gordo"),
+      &[]
+    ).unwrap();
+    pub static ref MODEL_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "model"),
+      &[]
+    ).unwrap();
+    pub static ref POD_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "pod"),
+      &[]
+    ).unwrap();
+    pub static ref ARGO_PULLING: IntCounterVec = IntCounterVec::new(
+      Opts::new("resource_pulling_counts", "Pulling resource count")
+      .namespace(METRICS_NAMESPACE)
+      .const_label("name", "argo"),
+      &[]
+    ).unwrap();
     pub static ref PROJECTS: Mutex<HashMap<String, bool>> = Mutex::new(HashMap::new());
 }
 
@@ -37,6 +61,10 @@ pub fn custom_metrics(registry: &Registry) {
   registry.register(Box::new(WARNINGS.clone())).unwrap();
   registry.register(Box::new(MODEL_COUNTS.clone())).unwrap();
   registry.register(Box::new(GORDO_PROJECTS.clone())).unwrap();
+  registry.register(Box::new(GORDO_PULLING.clone())).unwrap();
+  registry.register(Box::new(MODEL_PULLING.clone())).unwrap();
+  registry.register(Box::new(POD_PULLING.clone())).unwrap();
+  registry.register(Box::new(ARGO_PULLING.clone())).unwrap();
 }
 
 pub fn kube_error_name<'a>(err: Error) -> &'a str {
