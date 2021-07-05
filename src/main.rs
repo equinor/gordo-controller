@@ -15,6 +15,8 @@ async fn main() -> () {
        Err(error) => panic!("Failed to load environment config: {:#?}", error)
     };
     info!("Starting with environment config: {:?}", &env_config);
+    env_config.validate().unwrap();
+    info!("Validation environment config succeeded");
 
     let kube_config = config::load_kube_config()
         .await

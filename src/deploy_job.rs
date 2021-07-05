@@ -57,6 +57,16 @@ impl DeployJob {
             Self::env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
         ];
 
+        // As long as we calling env_config.validate() method in the main function
+        // there should not be circumstances from which panic should occur here
+        let default_deploy_environment = env_config.get_default_deploy_environment().unwrap();
+
+        if let Some(deploy_environment) = default_deploy_environment {
+            for (key, value) in &deploy_environment {
+               environment.push(Self::env_var(key, value));
+            }
+        }
+
         // push in any that were supplied by the Gordo.spec.gordo_environment mapping
         gordo.spec.deploy_environment.as_ref().map(|env| {
             env.iter().for_each(|(key, value)| {

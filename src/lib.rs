@@ -1,9 +1,11 @@
 use futures::future::join4;
+use std::result::{Result};
 use kube::config;
 use kube::{api::Reflector, api::Object, client::APIClient, config::Configuration};
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use log::error;
 use serde::Deserialize;
+use serde_json;
 
 pub mod crd;
 pub mod deploy_job;
@@ -17,6 +19,8 @@ use crate::crd::{
 };
 pub use deploy_job::DeployJob;
 use kube::api::Api;
+use k8s_openapi::url::OpaqueOrigin;
+use std::collections::HashMap;
 
 fn default_deploy_repository() -> String {
     "".to_string()
@@ -40,7 +44,27 @@ pub struct GordoEnvironmentConfig {
     #[serde(default="default_server_host")]
     pub server_host: String,
     pub docker_registry: String,
+    pub default_deploy_environment: String,
 }
+
+impl GordoEnvironmentConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        self.get_default_deploy_environment()?;
+        Ok(())
+    }
+
+    pub fn get_default_deploy_environment(&self) -> Result<Option<HashMap<String, String>>, String> {
+        if self.default_deploy_environment.is_empty() {
+            return Ok(None);
+        }
+        let result: Result<HashMap<String, String>, _> = serde_json::from_str(&self.default_deploy_environment);
+        match result {
+            Ok(map) => Ok(Some(map)),
+            Err(err) => Err(err.to_string()),
+        }
+    }
+}
+
 impl Default for GordoEnvironmentConfig {
     fn default() -> Self {
         GordoEnvironmentConfig {
@@ -49,6 +73,7 @@ impl Default for GordoEnvironmentConfig {
             server_port: 8888,
             server_host: "0.0.0.0".to_owned(),
             docker_registry: "docker.io".to_owned(),
+            default_deploy_environment: "".to_owned(),
         }
     }
 }
