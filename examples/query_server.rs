@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .text()
         .await?;
 
-    assert!(body.contains("gordo_controller_http_requests_total"))
+    assert!(body.contains("gordo_controller_http_requests_total"));
 
     // Apply a Gordo and Model
     let gordo: Value = read_manifest("example-gordo.yaml");
