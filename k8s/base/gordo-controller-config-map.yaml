@@ -5,3 +5,4 @@ metadata:
 data:
   DEPLOY_IMAGE: "docker.io/equinor/gordo-deploy:latest"
   RUST_LOG: "info,kube=info"
+  DEFAULT_DEPLOY_ENVIRONMENT: ""
