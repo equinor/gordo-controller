@@ -1,9 +1,9 @@
 use actix_web::{middleware, web, App, HttpServer};
-use gordo_controller::{controller_init, crd, views, GordoEnvironmentConfig};
+use gordo_controller::{controller_init, crd, views, GordoEnvironmentConfig, Config};
 use actix_web_prom::PrometheusMetrics;
 use prometheus::{Registry};
 use kube::config;
-use log::info;
+use log::{info,debug};
 
 #[actix_rt::main]
 async fn main() -> () {
@@ -14,17 +14,17 @@ async fn main() -> () {
        Ok(config) => config,
        Err(error) => panic!("Failed to load environment config: {:#?}", error)
     };
-    info!("Starting with environment config: {:?}", &env_config);
-    env_config.validate().unwrap();
-    info!("Validation environment config succeeded");
+    debug!("Environment config: {:?}", &env_config);
+    let gordo_config = Config::from_env_config(env_config).unwrap();
+    info!("Starting with config: {:?}", gordo_config);
 
     let kube_config = config::load_kube_config()
         .await
         .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"));
 
-    let bind_address = format!("{}:{}", &env_config.server_host, env_config.server_port);
+    let bind_address = format!("{}:{}", &gordo_config.server_host, gordo_config.server_port);
 
-    let controller = controller_init(kube_config, env_config).await.unwrap();
+    let controller = controller_init(kube_config, gordo_config).await.unwrap();
 
     let registry = Registry::new();
     crd::metrics::custom_metrics(&registry);

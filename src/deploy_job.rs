@@ -1,4 +1,4 @@
-use crate::{Gordo, GordoEnvironmentConfig};
+use crate::{Gordo, Config};
 use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec, ResourceRequirements};
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
@@ -26,7 +26,7 @@ pub struct DeployJobSpec {
 
 impl DeployJob {
     /// Create a new deploy job based on a Gordo CRD and current environment.
-    pub fn new(gordo: &Gordo, env_config: &GordoEnvironmentConfig) -> Self {
+    pub fn new(gordo: &Gordo, config: &Config) -> Self {
         // Create the job name.
         let job_name_suffix = format!(
             "{}-{}",
@@ -52,17 +52,17 @@ impl DeployJob {
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_REVISION", &project_revision),
             // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
-            Self::env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &env_config.docker_registry),
+            Self::env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &config.docker_registry),
             Self::env_var("WORKFLOW_GENERATOR_GORDO_VERSION", &gordo.spec.deploy_version),
             Self::env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
         ];
 
         // As long as we calling env_config.validate() method in the main function
         // there should not be circumstances from which panic should occur here
-        let default_deploy_environment = env_config.get_default_deploy_environment().unwrap();
+        let default_deploy_environment = &config.default_deploy_environment;
 
         if let Some(deploy_environment) = default_deploy_environment {
-            for (key, value) in &deploy_environment {
+            for (key, value) in deploy_environment {
                environment.push(Self::env_var(key, value));
             }
         }
@@ -74,7 +74,7 @@ impl DeployJob {
             })
         });
 
-        let container = Self::container(&gordo, environment, env_config);
+        let container = Self::container(&gordo, environment, config);
         let pod_spec = Self::pod_spec(vec![container]);
         let spec_metadata = Self::pod_spec_metadata(&job_name);
 
@@ -130,27 +130,27 @@ impl DeployJob {
         spec_metadata
     }
 
-    fn deploy_image(gordo: &Gordo, env_config: &GordoEnvironmentConfig) -> String {
+    fn deploy_image(gordo: &Gordo, config: &Config) -> String {
         let docker_registry = match &gordo.spec.docker_registry {
             Some(docker_registry) => docker_registry,
-            None => &env_config.docker_registry,
+            None => &config.docker_registry,
         };
         match &gordo.spec.deploy_repository {
             Some(deploy_repository) => format!("{}/{}", docker_registry, deploy_repository),
             None => {
-                if !env_config.deploy_repository.is_empty() {
-                    format!("{}/{}", docker_registry, env_config.deploy_repository)
+                if !config.deploy_repository.is_empty() {
+                    format!("{}/{}", docker_registry, config.deploy_repository)
                 } else {
-                    env_config.deploy_image.clone()
+                    config.deploy_image.clone()
                 }
             }
         }
     }
 
-    fn container(gordo: &Gordo, environment: Vec<EnvVar>, env_config: &GordoEnvironmentConfig) -> Container {
+    fn container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) -> Container {
         let mut container = Container::default();
         container.name = "gordo-deploy".to_string();
-        let deploy_image = Self::deploy_image(gordo, env_config);
+        let deploy_image = Self::deploy_image(gordo, config);
         container.image = Some(format!("{}:{}", deploy_image, &gordo.spec.deploy_version));
         container.command = Some(vec!["bash".to_string(), "./run_workflow_and_argo.sh".to_string()]);
         container.image_pull_policy = Some("Always".to_string());

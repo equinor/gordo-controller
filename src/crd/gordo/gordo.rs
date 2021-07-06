@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{DeployJob, GordoEnvironmentConfig};
+use crate::{DeployJob, Config};
 use crate::crd::metrics::{kube_error_happened};
 
 pub type GenerationNumber = Option<u32>;
@@ -97,10 +97,10 @@ pub async fn start_gordo_deploy_job(
     client: &APIClient,
     resource: &Api<Gordo>,
     namespace: &str,
-    env_config: &GordoEnvironmentConfig,
+    config: &Config,
 ) -> () {
     // Job manifest for launching this gordo config into a workflow
-    let job = DeployJob::new(&gordo, &env_config);
+    let job = DeployJob::new(&gordo, &config);
 
     // Before launching this job, remove previous jobs for this project
     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
