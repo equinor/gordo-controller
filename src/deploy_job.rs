@@ -67,6 +67,8 @@ impl DeployJob {
             }
         }
 
+        let resources_labels = &config.resources_labels;
+
         // push in any that were supplied by the Gordo.spec.gordo_environment mapping
         gordo.spec.deploy_environment.as_ref().map(|env| {
             env.iter().for_each(|(key, value)| {
@@ -76,7 +78,7 @@ impl DeployJob {
 
         let container = Self::container(&gordo, environment, config);
         let pod_spec = Self::pod_spec(vec![container]);
-        let spec_metadata = Self::pod_spec_metadata(&job_name);
+        let spec_metadata = Self::pod_spec_metadata(&job_name, resources_labels);
 
         Self {
             types: TypeMeta {
@@ -88,7 +90,7 @@ impl DeployJob {
                 namespace: None,
                 creation_timestamp: None,
                 deletion_timestamp: None,
-                labels: Self::labels(&gordo),
+                labels: Self::labels(&gordo, resources_labels),
                 annotations: Default::default(),
                 resourceVersion: None,
                 ownerReferences: owner_references,
@@ -118,15 +120,21 @@ impl DeployJob {
         }
     }
 
-    fn labels(gordo: &Gordo) -> BTreeMap<String, String> {
+    fn labels(gordo: &Gordo, resources_labels: &Option<BTreeMap<String, String>>) -> BTreeMap<String, String> {
         let mut labels = BTreeMap::new();
         labels.insert("gordoProjectName".to_owned(), gordo.metadata.name.to_owned());
+        if let Some(additional_labels) = resources_labels {
+            for (label, value) in additional_labels {
+                labels.insert(label.to_owned(), value.to_owned());
+            }
+        }
         labels
     }
 
-    fn pod_spec_metadata(name: &str) -> OpenApiObjectMeta {
+    fn pod_spec_metadata(name: &str, resources_labels: &Option<BTreeMap<String, String>>) -> OpenApiObjectMeta {
         let mut spec_metadata = OpenApiObjectMeta::default();
         spec_metadata.name = Some(name.to_string());
+        spec_metadata.labels = resources_labels.to_owned();
         spec_metadata
     }
 
