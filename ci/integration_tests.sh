@@ -3,7 +3,7 @@
 export DEPLOY_IMAGE=docker.io/gordo/gordo-deploy
 export DOCKER_REGISTRY=docker.io
 export DEFAULT_DEPLOY_ENVIRONMENT=
-export RESOURCE_LABELS=
+export RESOURCES_LABELS=
 
 SLEEP_TIMEOUT=10
 

@@ -45,7 +45,7 @@ pub struct GordoEnvironmentConfig {
     pub server_host: String,
     pub docker_registry: String,
     pub default_deploy_environment: String,
-    pub resource_labels: String,
+    pub resources_labels: String,
 }
 
 #[derive(Debug, Clone)]
@@ -56,14 +56,14 @@ pub struct Config {
     pub server_host: String,
     pub docker_registry: String,
     pub default_deploy_environment: Option<HashMap<String, String>>,
-    pub resource_labels: Option<BTreeMap<String, String>>,
+    pub resources_labels: Option<BTreeMap<String, String>>,
 }
 
 impl Config {
 
     pub fn from_env_config(env_config: GordoEnvironmentConfig) -> Result<Self, String> {
         let default_deploy_environment: Option<HashMap<String, String>> = Config::load_from_json(&env_config.default_deploy_environment)?;
-        let resource_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resource_labels)?;
+        let resources_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resources_labels)?;
         Ok(Config {
             deploy_image: env_config.deploy_image.clone(),
             deploy_repository: env_config.deploy_repository.clone(),
@@ -71,7 +71,7 @@ impl Config {
             server_host: env_config.server_host.clone(),
             docker_registry: env_config.docker_registry.clone(),
             default_deploy_environment,
-            resource_labels,
+            resources_labels,
         })
     }
 
@@ -96,7 +96,7 @@ impl Default for GordoEnvironmentConfig {
             server_host: "0.0.0.0".to_owned(),
             docker_registry: "docker.io".to_owned(),
             default_deploy_environment: "".to_owned(),
-            resource_labels: "".to_owned(),
+            resources_labels: "".to_owned(),
         }
     }
 }
