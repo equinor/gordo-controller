@@ -85,6 +85,16 @@ impl Config {
             Err(err) => Err(err.to_string()),
         }
     }
+
+    pub fn get_resources_labels_json(&self) -> Result<String, String> {
+        if let Some(resources_labels) = &self.resources_labels {
+            return match serde_json::to_string(resources_labels) {
+                Ok(value) => Ok(value),
+                Err(err) => Err(err.to_string()),
+            }
+        }
+        Ok("".to_string())
+    }
 }
 
 impl Default for GordoEnvironmentConfig {

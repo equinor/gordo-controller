@@ -43,6 +43,9 @@ impl DeployJob {
             debug_show_workflow = "true"
         }
 
+        // TODO Handle possible panic here
+        let resources_labels = config.get_resources_labels_json().unwrap();
+
         // Build up the gordo-deploy environment variables
         let mut environment: Vec<EnvVar> = vec![
             Self::env_var("GORDO_NAME", &gordo.metadata.name),
@@ -54,6 +57,7 @@ impl DeployJob {
             Self::env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
             Self::env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &config.docker_registry),
             Self::env_var("WORKFLOW_GENERATOR_GORDO_VERSION", &gordo.spec.deploy_version),
+            Self::env_var("WORKFLOW_GENERATOR_RESOURCE_LABELS", &resources_labels),
             Self::env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
         ];
 
