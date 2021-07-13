@@ -2,7 +2,7 @@ use tokio_test::block_on;
 
 use actix_web::web::Json;
 use actix_web::{http::StatusCode, test, web};
-use gordo_controller::{controller_init, load_kube_config, views, Controller, GordoEnvironmentConfig};
+use gordo_controller::{controller_init, load_kube_config, views, Controller, GordoEnvironmentConfig, Config};
 use gordo_controller::{crd::gordo::Gordo, crd::model::Model};
 
 #[test]
@@ -39,7 +39,8 @@ fn test_view_models() {
 // Helper for just this module: loading app state for testing
 async fn app_state() -> web::Data<Controller> {
     let kube_config = load_kube_config().await;
-    let controller = controller_init(kube_config, GordoEnvironmentConfig::default())
+    let config = Config::from_env_config(GordoEnvironmentConfig::default()).unwrap();
+    let controller = controller_init(kube_config, config)
         .await
         .unwrap();
     web::Data::new(controller)

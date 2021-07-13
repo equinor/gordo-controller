@@ -1,9 +1,11 @@
 use futures::future::join4;
+use std::result::{Result};
 use kube::config;
 use kube::{api::Reflector, api::Object, client::APIClient, config::Configuration};
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use log::error;
 use serde::Deserialize;
+use serde_json;
 
 pub mod crd;
 pub mod deploy_job;
@@ -17,6 +19,8 @@ use crate::crd::{
 };
 pub use deploy_job::DeployJob;
 use kube::api::Api;
+use k8s_openapi::url::OpaqueOrigin;
+use std::collections::{HashMap, BTreeMap};
 
 fn default_deploy_repository() -> String {
     "".to_string()
@@ -40,7 +44,59 @@ pub struct GordoEnvironmentConfig {
     #[serde(default="default_server_host")]
     pub server_host: String,
     pub docker_registry: String,
+    pub default_deploy_environment: String,
+    pub resources_labels: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub deploy_image: String,
+    pub deploy_repository: String,
+    pub server_port: u16,
+    pub server_host: String,
+    pub docker_registry: String,
+    pub default_deploy_environment: Option<HashMap<String, String>>,
+    pub resources_labels: Option<BTreeMap<String, String>>,
+}
+
+impl Config {
+
+    pub fn from_env_config(env_config: GordoEnvironmentConfig) -> Result<Self, String> {
+        let default_deploy_environment: Option<HashMap<String, String>> = Config::load_from_json(&env_config.default_deploy_environment)?;
+        let resources_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resources_labels)?;
+        Ok(Config {
+            deploy_image: env_config.deploy_image.clone(),
+            deploy_repository: env_config.deploy_repository.clone(),
+            server_port: env_config.server_port,
+            server_host: env_config.server_host.clone(),
+            docker_registry: env_config.docker_registry.clone(),
+            default_deploy_environment,
+            resources_labels,
+        })
+    }
+
+    pub fn load_from_json<'a, T>(json_value: &'a str) -> Result<Option<T>, String> where T: Deserialize<'a> {
+        if json_value.is_empty() {
+            return Ok(None);
+        }
+        let result: Result<T, _> = serde_json::from_str(json_value);
+        match result {
+            Ok(value) => Ok(Some(value)),
+            Err(err) => Err(err.to_string()),
+        }
+    }
+
+    pub fn get_resources_labels_json(&self) -> Result<String, String> {
+        if let Some(resources_labels) = &self.resources_labels {
+            return match serde_json::to_string(resources_labels) {
+                Ok(value) => Ok(value),
+                Err(err) => Err(err.to_string()),
+            }
+        }
+        Ok("".to_string())
+    }
+}
+
 impl Default for GordoEnvironmentConfig {
     fn default() -> Self {
         GordoEnvironmentConfig {
@@ -49,6 +105,8 @@ impl Default for GordoEnvironmentConfig {
             server_port: 8888,
             server_host: "0.0.0.0".to_owned(),
             docker_registry: "docker.io".to_owned(),
+            default_deploy_environment: "".to_owned(),
+            resources_labels: "".to_owned(),
         }
     }
 }
@@ -73,12 +131,12 @@ pub struct Controller {
     pod_resource: Api<Object<PodSpec, PodStatus>>,
     wf_rf: Reflector<ArgoWorkflow>,
     wf_resource: Api<ArgoWorkflow>,
-    env_config: GordoEnvironmentConfig,
+    config: Config,
 }
 
 impl Controller {
     /// Create a new instance of the Gordo Controller
-    pub async fn new(kube_config: Configuration, env_config: GordoEnvironmentConfig) -> Self {
+    pub async fn new(kube_config: Configuration, config: Config) -> Self {
         let timeout = 15;
 
         let namespace = kube_config.default_ns.to_owned();
@@ -107,7 +165,7 @@ impl Controller {
             pod_resource,
             wf_rf,
             wf_resource,
-            env_config,
+            config,
         }
     }
 
@@ -148,9 +206,9 @@ impl Controller {
 /// While at the same time initializing the monitoring of `Gorod`s and `Model`s
 pub async fn controller_init(
     kube_config: Configuration,
-    env_config: GordoEnvironmentConfig,
+    config: Config,
 ) -> Result<Controller, kube::Error> {
-    let controller = Controller::new(kube_config, env_config).await;
+    let controller = Controller::new(kube_config, config).await;
 
     // Continuously poll `Controller::poll` to keep the app state current
     let c1 = controller.clone();

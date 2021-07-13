@@ -3,7 +3,7 @@ use kube::{api::Api, client::APIClient};
 use log::error;
 use std::collections::{HashSet};
 
-use crate::{Controller, GordoEnvironmentConfig};
+use crate::{Controller, Config};
 use crate::crd::metrics::{KUBE_ERRORS, update_gordo_projects, GORDO_PULLING};
 
 pub mod gordo;
@@ -18,7 +18,7 @@ pub async fn monitor_gordos(controller: &Controller) -> () {
             &controller.client,
             &controller.gordo_resource,
             &controller.namespace,
-            &controller.env_config,
+            &controller.config,
         )
     }))
     .await;
@@ -45,7 +45,7 @@ async fn handle_gordo_state(
     client: &APIClient,
     resource: &Api<Gordo>,
     namespace: &str,
-    env_config: &GordoEnvironmentConfig,
+    config: &Config,
 ) -> Result<(), kube::Error> {
     let should_start_deploy_job = match gordo.status {
         Some(ref status) => {
@@ -62,7 +62,7 @@ async fn handle_gordo_state(
     };
 
     if should_start_deploy_job {
-        crate::crd::gordo::start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &env_config).await;
+        crate::crd::gordo::start_gordo_deploy_job(&gordo, &client, &resource, &namespace, &config).await;
     }
     Ok(())
 }

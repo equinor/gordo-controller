@@ -3,10 +3,10 @@ use tokio_test::block_on;
 
 mod helpers;
 
-use gordo_controller::crd::gordo::{load_gordo_resource, Gordo, GordoStatus};
+use gordo_controller::crd::gordo::{load_gordo_resource, Gordo, GordoStatus, GordoConfig};
 use gordo_controller::crd::model::{filter_models_on_gordo, Model};
 use gordo_controller::deploy_job::DeployJob;
-use gordo_controller::GordoEnvironmentConfig;
+use gordo_controller::{GordoEnvironmentConfig, Config};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[test]
@@ -71,7 +71,9 @@ fn test_deploy_job_injects_project_version() {
     */
     let gordo: Gordo = serde_json::from_value(helpers::example_config("example-gordo.yaml")).unwrap();
 
-    let deploy_job = DeployJob::new(&gordo, &GordoEnvironmentConfig::default());
+    let config = Config::from_env_config(GordoEnvironmentConfig::default()).unwrap();
+
+    let deploy_job = DeployJob::new(&gordo, &config);
 
     assert!(deploy_job.spec.template.spec.unwrap().containers[0]
         .env
