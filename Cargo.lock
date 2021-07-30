@@ -861,7 +861,7 @@ dependencies = [
 
 [[package]]
 name = "gordo-controller"
-version = "0.11.1"
+version = "0.11.3"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -1815,9 +1815,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.48"
+version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9371ade75d4c2d6cb154141b9752cf3781ec9c05e0e5cf35060e1e70ee7b9c25"
+checksum = "336b10da19a12ad094b59d870ebde26a45402e5b470add4b5fd03c5048a32127"
 dependencies = [
  "itoa",
  "ryu",
