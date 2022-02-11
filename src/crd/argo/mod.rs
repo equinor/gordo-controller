@@ -1,16 +1,16 @@
 pub mod argo;
 pub use argo::*;
 
-use futures::future::join3;
 use log::{error, info, warn};
-use kube::api::Object;
-use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status, get_model_project};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
-use crate::Controller;
 use crate::crd::metrics::{kube_error_happened, warning_happened, ModelPhasesMetrics, update_model_counts, ARGO_PULLING};
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
+use k8s_openapi::{
+    api::core::v1::Pod,
+};
+use kube::api::Api;
 
 pub const WF_MATCH_LABELS: &'static [&'static str] = &[
     "applications.gordo.equinor.com/project-name", 
@@ -19,7 +19,7 @@ pub const WF_MATCH_LABELS: &'static [&'static str] = &[
 
 pub const WF_NUMBER_LABEL: &str = "applications.gordo.equinor.com/project-workflow";
 
-fn some_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
+fn some_of_workflows_in_phases(workflows: &Vec<&Workflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
     workflows.iter()
         .any(|wf| match &wf.status {
             Some(status) => match &status.phase {
@@ -30,7 +30,7 @@ fn some_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoW
         })
 }
 
-fn all_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
+fn all_of_workflows_in_phases(workflows: &Vec<&Workflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
     workflows.iter()
         .all(|wf| match &wf.status {
             Some(status) => match &status.phase {
@@ -41,7 +41,7 @@ fn all_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWo
         })
 }
 
-fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [ArgoWorkflow]) -> Vec<&'a ArgoWorkflow> {
+fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [Workflow]) -> Vec<&'a Workflow> {
     //TODO for performance reason we supposed to reimplement this algorithm with BTreeMap 
     workflows
         .iter()
@@ -63,7 +63,7 @@ fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [ArgoWorkflow]) -> 
         .collect()
 }
 
-fn failed_pods_terminated_statuses<'a>(model: &'a Model, pods: &'a Vec<Object<PodSpec, PodStatus>>) -> Vec<&'a ContainerStateTerminated> {
+fn failed_pods_terminated_statuses<'a>(model: &'a Model, pods: &'a Vec<Pod>) -> Vec<&'a ContainerStateTerminated> {
     pods.iter()
         .filter(|pod| {
             match &pod.status {
@@ -106,13 +106,12 @@ fn last_container_terminated_status(terminated_statuses: Vec<&ContainerStateTerm
     }
 }
 
-pub async fn monitor_wf(controller: &Controller) -> () {
+pub async fn monitor_wf(model_api: &Api<Model>, workflows: Vec<Workflow>, models: Vec<Model>, pods: Vec<Pod>) -> () {
     // TODO this function definitely need to be refactored
-    let (workflows, models, pods) = join3(controller.wf_state(), controller.model_state(), controller.pod_state()).await;
     let mut model_phases_metrics = ModelPhasesMetrics::new(None);
 
-    for model in models {
-      let labels = &model.metadata.labels;
+    for model in &models {
+        let labels = &model.metadata.labels;
         let mut current_phase: Option<ModelPhase> = None;
         let current_project: Option<String> = get_model_project(&model);
         match &model.status {
@@ -164,7 +163,7 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                     }
                                 }
                                 if model_phase != model_status.phase {
-                                    match patch_model_status(&controller.model_resource, &model.metadata.name, new_model_status).await {
+                                    match patch_model_status(&model_api, &model.metadata.name, new_model_status).await {
                                         Ok(new_model) => {
                                           info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status);
                                           current_phase = match new_model.status {
@@ -183,7 +182,7 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                         _ => (),
                     }
                 } else {
-                    match patch_model_with_default_status(&controller.model_resource, &model).await {
+                    match patch_model_with_default_status(&model_api, &model).await {
                         Ok(new_model) => {
                           info!("Patching Model '{}' from status {:?} to default status {:?}", model.metadata.name, model.status, new_model.status);
                           current_phase = match new_model.status {

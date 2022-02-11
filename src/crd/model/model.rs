@@ -1,14 +1,15 @@
 use crate::crd::gordo::Gordo;
-use kube::api::{Api, Object, PatchParams};
-use kube::client::APIClient;
+use kube::api::{Api, Object, PatchParams, Patch};
+use kube::CustomResource;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json::json;
-
-pub type Model = Object<ModelSpec, ModelStatus>;
+use schemars::JsonSchema;
 
 /// Represents the 'spec' field of a Model custom resource definition
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(CustomResource, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+#[kube(group = "equinor.com", version = "v1", kind = "Model", namespaced)]
+#[kube(shortname = "gm")]
 pub struct ModelSpec {
     #[serde(rename = "gordo-version")]
     pub gordo_version: String,
@@ -16,7 +17,7 @@ pub struct ModelSpec {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, JsonSchema)]
 pub struct ModelStatus {
     pub phase: ModelPhase,
     pub code: Option<i32>,
@@ -26,7 +27,7 @@ pub struct ModelStatus {
     pub revision: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum ModelPhase {
     #[serde(alias = "unknown")]
     Unknown,
@@ -37,6 +38,7 @@ pub enum ModelPhase {
     #[serde(alias = "succeeded")]
     Succeeded,
 }
+
 pub const PHASES_COUNT: usize = 4;
 
 impl Default for ModelPhase {
@@ -51,13 +53,6 @@ pub struct ModelPodTerminatedStatus {
     pub error_type: Option<String>,
     pub message: Option<String>,
     pub traceback: Option<String>,
-}
-
-pub fn load_model_resource(client: &APIClient, namespace: &str) -> Api<Model> {
-    Api::customResource(client.clone(), "models")
-        .version("v1")
-        .group("equinor.com")
-        .within(&namespace)
 }
 
 /// Filter a collection of models to match a `Gordo` based on `OwnerReference`
@@ -94,10 +89,10 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         })
 }
 
-pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: &'a str, new_status: ModelStatus) -> kube::Result<Model> {
+pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: &'a str, new_status: &ModelStatus) -> kube::Result<Model> {
     let patch_params = PatchParams::default();
     let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
-    model_resource.patch_status(model_name, &patch_params, patch).await
+    model_resource.patch_status(model_name, &patch_params, &Patch::Merge(patch)).await
 }
 
 pub fn get_model_project<'a>(model: &'a Model) -> Option<String> {

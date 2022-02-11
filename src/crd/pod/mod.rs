@@ -1,9 +1,12 @@
 use log::{error, info};
 use kube::api::Api;
 
-use crate::Controller;
+use k8s_openapi::{
+    api::core::v1::Pod,
+};
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
-use crate::crd::metrics::{kube_error_happened, POD_PULLING}; 
+use crate::crd::metrics::{kube_error_happened, POD_PULLING};
+use crate::crd::argo::*;
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";
@@ -17,8 +20,8 @@ pub const POD_MATCH_LABELS: &'static [&'static str] = &[
     "applications.gordo.equinor.com/model-name"
 ];
 
-async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_status: ModelStatus) {
-    match patch_model_status(model_resource, &model.metadata.name, new_status).await {
+async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_status: &ModelStatus) {
+    match patch_model_status(model_resource, &model.metadata.name, &new_status).await {
         Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
         Err(err) => {
           error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
@@ -27,9 +30,7 @@ async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_sta
     }
 }
 
-pub async fn monitor_pods(controller: &Controller) -> () {
-    let models = controller.model_state().await;
-
+pub async fn monitor_pods(model_api: &Api<Model>, workflows: Vec<Workflow>, models: Vec<Model>, pods: Vec<Pod>) -> () {
     //Filtering only active models
     let actual_models: Vec<_> = models.into_iter()
         .filter(|model| match &model.status {
@@ -40,8 +41,6 @@ pub async fn monitor_pods(controller: &Controller) -> () {
     if actual_models.is_empty() {
         return
     }
-
-    let pods = controller.pod_state().await;
 
     //TODO to perform the models-pods matching in O(1) makes sense to do collect into some sort of HashMap here
     let actual_pods_labels: Vec<_> = pods.into_iter()
@@ -98,7 +97,7 @@ pub async fn monitor_pods(controller: &Controller) -> () {
         };
         if let Some(new_status) = new_model_status {
             update_model_status(
-                &controller.model_resource,
+                model_api,
                 &model,
                 new_status,
             ).await;

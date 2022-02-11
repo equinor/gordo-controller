@@ -1,17 +1,18 @@
 [package]
 name = "gordo-controller"
 version = "0.11.3"
-authors = ["Miles Granger <miles59923@gmail.com>"]
+authors = ["Miles Granger <miles59923@gmail.com>", "Serhii Koropets <skoro@equinor.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-web = "2.0.0"
-actix-rt = "1.0.0"
+actix-web = "3.3.3"
+actix-rt = "2.6.0"
 chrono = "0.4"
-kube = { version = "0.26.0", features = ["openapi"] }
-k8s-openapi = { version = "0.7.1", default-features = false, features = ["v1_15"] }
+kube = { version = "0.59.0", features = ["derive"] }
+kube-runtime = "0.59.0"
+k8s-openapi = { version = "0.13.0", default-features = false, features = ["v1_17"] }
 log = "0.4.10"
 failure = "0.1.6"
 env_logger = "0.7.1"
@@ -23,6 +24,8 @@ futures = "0.3.4"
 prometheus = "0.8.0"
 actix-web-prom = "0.2.0"
 lazy_static = "1.4.0"
+schemars = "0.8.3"
+thiserror = "1"
 
 [dev-dependencies]
 serde_yaml = "0.8.11"

@@ -1,11 +1,18 @@
-use crate::{Gordo, Config};
-use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec, ResourceRequirements};
+use crate::{
+    Gordo,
+    Config,
+    utils::{object_to_owner_reference, env_var},
+};
+use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec,
+                                 ResourceRequirements};
+use k8s_openapi::api::batch::v1::Job;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
-use kube::api::{ObjectMeta, OwnerReference, TypeMeta};
+use kube::api::{ObjectMeta, TypeMeta};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
+use std::result::Result;
 
 #[derive(Serialize, Clone)]
 pub struct DeployJob {
@@ -22,6 +29,113 @@ pub struct DeployJob {
 pub struct DeployJobSpec {
     pub ttlSecondsAfterFinished: u32,
     pub template: PodTemplateSpec,
+}
+
+/// Generate a name which is no greater than 63 chars in length
+/// always keeping the `prefix` and as much of `suffix` as possible, favoring its ending.
+pub fn deploy_job_name(prefix: &str, suffix: &str) -> String {
+    let suffix = suffix
+        .chars()
+        .rev()
+        .take(63 - prefix.len())
+        .collect::<Vec<char>>()
+        .iter()
+        .rev()
+        .collect::<String>();
+    format!("{}{}", prefix, suffix)
+}
+
+
+pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Result<Job> {
+    // Create the job name.
+    let job_name_suffix = format!(
+        "{}-{}",
+        &gordo.metadata.name,
+        &gordo.metadata.generation.map(|v| v as u32).unwrap_or(0)
+    );
+    let job_name = deploy_job_name("gordo-dpl-", &job_name_suffix);
+
+    let owner_references = object_to_owner_reference(
+        gordo.metadata.clone()
+    );
+    let owner_ref_as_string = serde_json::to_string(&owner_references).unwrap();
+    let project_revision = chrono::Utc::now().timestamp_millis().to_string();
+    let mut debug_show_workflow = "";
+    if gordo.spec.debug_show_workflow.unwrap_or(false) {
+        debug_show_workflow = "true"
+    }
+
+    // TODO Handle possible panic here
+    let resources_labels = config.get_resources_labels_json().unwrap();
+
+    // Build up the gordo-deploy environment variables
+    let mut environment: Vec<EnvVar> = vec![
+        env_var("GORDO_NAME", &gordo.metadata.name),
+        env_var("ARGO_SUBMIT", "true"),
+        env_var("WORKFLOW_GENERATOR_PROJECT_NAME", &gordo.metadata.name),
+        env_var("WORKFLOW_GENERATOR_OWNER_REFERENCES", &owner_ref_as_string),
+        env_var("WORKFLOW_GENERATOR_PROJECT_REVISION", &project_revision),
+        // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
+        env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
+        env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &config.docker_registry),
+        env_var("WORKFLOW_GENERATOR_GORDO_VERSION", &gordo.spec.deploy_version),
+        env_var("WORKFLOW_GENERATOR_RESOURCE_LABELS", &resources_labels),
+        env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
+    ];
+
+    // As long as we calling env_config.validate() method in the main function
+    // there should not be circumstances from which panic should occur here
+    let default_deploy_environment = &config.default_deploy_environment;
+
+    if let Some(deploy_environment) = default_deploy_environment {
+        for (key, value) in deploy_environment {
+            environment.push(env_var(key, value));
+        }
+    }
+
+    let resources_labels = &config.resources_labels;
+
+    // push in any that were supplied by the Gordo.spec.gordo_environment mapping
+    gordo.spec.deploy_environment.as_ref().map(|env| {
+        env.iter().for_each(|(key, value)| {
+            environment.push(env_var(key, value));
+        })
+    });
+
+    let container = Self::container(&gordo, environment, config);
+    let pod_spec = Self::pod_spec(vec![container]);
+    let spec_metadata = Self::pod_spec_metadata(&job_name, resources_labels);
+
+    Self {
+        types: TypeMeta {
+            apiVersion: Some("v1".to_string()),
+            kind: Some("Job".to_string()),
+        },
+        metadata: ObjectMeta {
+            name: job_name.clone(),
+            namespace: None,
+            creation_timestamp: None,
+            deletion_timestamp: None,
+            labels: Self::labels(&gordo, resources_labels),
+            annotations: Default::default(),
+            resourceVersion: None,
+            ownerReferences: owner_references,
+            uid: None,
+            generation: None,
+            generateName: None,
+            initializers: None,
+            finalizers: vec![],
+        },
+        spec: DeployJobSpec {
+            ttlSecondsAfterFinished: 604800, // 1 week in seconds,
+            template: PodTemplateSpec {
+                metadata: Some(spec_metadata),
+                spec: Some(pod_spec),
+            },
+        },
+        status: None,
+        revision: project_revision,
+    }
 }
 
 impl DeployJob {
@@ -206,17 +320,5 @@ impl DeployJob {
         vec![owner_ref]
     }
 
-    /// Generate a name which is no greater than 63 chars in length
-    /// always keeping the `prefix` and as much of `suffix` as possible, favoring its ending.
-    pub fn deploy_job_name(prefix: &str, suffix: &str) -> String {
-        let suffix = suffix
-            .chars()
-            .rev()
-            .take(63 - prefix.len())
-            .collect::<Vec<char>>()
-            .iter()
-            .rev()
-            .collect::<String>();
-        format!("{}{}", prefix, suffix)
-    }
+
 }

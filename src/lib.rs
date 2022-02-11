@@ -1,15 +1,33 @@
 use futures::future::join4;
 use std::result::{Result};
 use kube::config;
-use kube::{api::Reflector, api::Object, client::APIClient, config::Configuration};
+use kube::{api::Object, config::Configuration};
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use log::error;
 use serde::Deserialize;
 use serde_json;
+use futures::StreamExt;
+use kube::{
+    api::{Api, ListParams, Resource},
+    client::Client,
+    CustomResource,
+};
+use kube_runtime::controller::{Context, Controller, ReconcilerAction};
+use k8s_openapi::{
+    api::core::v1::Pod,
+    apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference},
+};
+use log::{info, warn};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value};
+use tokio::time::Duration;
+use schemars::JsonSchema;
+use thiserror::Error;
 
 pub mod crd;
 pub mod deploy_job;
 pub mod views;
+pub mod utils;
 
 use crate::crd::{
     gordo::{load_gordo_resource, monitor_gordos, Gordo},
@@ -18,8 +36,6 @@ use crate::crd::{
     argo::{load_argo_workflow_resource, monitor_wf, ArgoWorkflow},
 };
 pub use deploy_job::DeployJob;
-use kube::api::Api;
-use k8s_openapi::url::OpaqueOrigin;
 use std::collections::{HashMap, BTreeMap};
 
 fn default_deploy_repository() -> String {
@@ -112,18 +128,10 @@ impl Default for GordoEnvironmentConfig {
 }
 
 
-/// Load the `kube::Configuration` giving priority to local, falling back to in-cluster config
-pub async fn load_kube_config() -> Configuration {
-    config::load_kube_config()
-        .await
-        .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"))
-}
-
 #[derive(Clone)]
-pub struct Controller {
+pub struct Manager {
     client: APIClient,
     namespace: String,
-    gordo_rf: Reflector<Gordo>,
     gordo_resource: Api<Gordo>,
     model_rf: Reflector<Model>,
     model_resource: Api<Model>,
@@ -134,7 +142,7 @@ pub struct Controller {
     config: Config,
 }
 
-impl Controller {
+impl Manager {
     /// Create a new instance of the Gordo Controller
     pub async fn new(kube_config: Configuration, config: Config) -> Self {
         let timeout = 15;
@@ -202,12 +210,7 @@ impl Controller {
     }
 }
 
-/// This returns a `Controller` and calls `poll` on it continuously.
-/// While at the same time initializing the monitoring of `Gorod`s and `Model`s
-pub async fn controller_init(
-    kube_config: Configuration,
-    config: Config,
-) -> Result<Controller, kube::Error> {
+pub async fn controller_init() {
     let controller = Controller::new(kube_config, config).await;
 
     // Continuously poll `Controller::poll` to keep the app state current

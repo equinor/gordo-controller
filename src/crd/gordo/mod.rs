@@ -1,48 +1,13 @@
-use futures::future::join_all;
-use kube::{api::Api, client::APIClient};
-use log::error;
-use std::collections::{HashSet};
+use kube::{api::Api, client::Client};
 
-use crate::{Controller, Config};
-use crate::crd::metrics::{KUBE_ERRORS, update_gordo_projects, GORDO_PULLING};
+use crate::{Config};
 
 pub mod gordo;
-pub use gordo::*;
-
-pub async fn monitor_gordos(controller: &Controller) -> () {
-    let gordos = controller.gordo_state().await;
-
-    let results = join_all(gordos.iter().map(|gordo| {
-        handle_gordo_state(
-            gordo,
-            &controller.client,
-            &controller.gordo_resource,
-            &controller.namespace,
-            &controller.config,
-        )
-    }))
-    .await;
-
-    let gordo_projects: HashSet<String> = gordos.into_iter()
-        .map(|gordo| { gordo.metadata.name })
-        .collect();
-
-    // Log any errors in handling state
-    results.iter().for_each(|result| {
-        if let Err(err) = result {
-            error!("{:?}", err);
-            KUBE_ERRORS.with_label_values(&["monitor_gordos", "unknown"]).inc_by(1);
-        }
-    });
-
-    update_gordo_projects(&gordo_projects);
-
-    GORDO_PULLING.with_label_values(&[]).inc();
-}
+pub use gordo::{Gordo, GordoSubmissionStatus, start_gordo_deploy_job};
 
 async fn handle_gordo_state(
     gordo: &Gordo,
-    client: &APIClient,
+    client: &Client,
     resource: &Api<Gordo>,
     namespace: &str,
     config: &Config,

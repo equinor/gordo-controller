@@ -1,22 +1,35 @@
 use futures::future::join_all;
 use kube::{
-    api::{Api, DeleteParams, ListParams, Object, PatchParams, PostParams},
-    client::APIClient,
+    api::{Api, DeleteParams, ListParams, PatchParams, PostParams, Patch},
+    client::Client,
+    CustomResource,
+};
+use k8s_openapi::{
+    api::batch::v1::Job,
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use schemars::JsonSchema;
 
 use crate::{DeployJob, Config};
-use crate::crd::metrics::{kube_error_happened};
+use crate::crd::metrics::{kube_error_happened, KUBE_ERRORS};
 
 pub type GenerationNumber = Option<u32>;
-pub type Gordo = Object<GordoSpec, GordoStatus>;
 
-/// Represents the 'spec' field of a Gordo resource
-#[derive(Serialize, Deserialize, Clone)]
-pub struct GordoSpec {
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+pub struct GordoConfig {
+    #[serde(alias = "machines", default)]
+    models: Vec<Value>,
+    #[serde(default)]
+    globals: Option<Value>,
+}
+
+#[derive(CustomResource, Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[kube(group = "equinor.com", version = "v1", kind = "Gordo", namespaced)]
+#[kube(shortname = "gd")]
+pub struct ConfigMapGeneratorSpec {
     #[serde(rename = "deploy-version")]
     pub deploy_version: String,
     #[serde(rename = "deploy-environment")]
@@ -30,28 +43,11 @@ pub struct GordoSpec {
     pub config: GordoConfig,
 }
 
-/// The actual structure, so much as we need to parse, of a gordo config.
-#[derive(Serialize, Deserialize, Clone)]
-pub struct GordoConfig {
-    #[serde(alias = "machines", default)]
-    models: Vec<Value>,
-    #[serde(default)]
-    globals: Option<Value>,
-}
-
 impl GordoConfig {
     /// Count of models defined in this config
     pub fn n_models(&self) -> usize {
         self.models.len()
     }
-}
-
-/// Load the `Gordo` custom resource API interface
-pub fn load_gordo_resource(client: &APIClient, namespace: &str) -> Api<Gordo> {
-    Api::customResource(client.clone(), "gordos")
-        .version("v1")
-        .group("equinor.com")
-        .within(&namespace)
 }
 
 /// Represents the possible 'status' of a Gordo resource
@@ -94,7 +90,7 @@ impl Default for GordoSubmissionStatus {
 /// Will patch the status of the `Gordo` to reflect the current revision number
 pub async fn start_gordo_deploy_job(
     gordo: &Gordo,
-    client: &APIClient,
+    client: &Client,
     resource: &Api<Gordo>,
     namespace: &str,
     config: &Config,
@@ -127,10 +123,9 @@ pub async fn start_gordo_deploy_job(
         "Setting status of this gordo '{}' to '{:?}'",
         &gordo.metadata.name, &status
     );
-    let patch =
-        serde_json::to_vec(&json!({ "status": status })).expect("Status was not serializable, should never happen.");
+    let patch = json!({ "status": status });
     match resource
-        .patch_status(&gordo.metadata.name, &PatchParams::default(), patch)
+        .patch_status(&gordo.metadata.name, &PatchParams::default(), &Patch::Merge(patch))
         .await
     {
         Ok(o) => info!("Patched status: {:?}", o.status),
@@ -142,10 +137,10 @@ pub async fn start_gordo_deploy_job(
 }
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
-pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {
+pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace: &str) -> () {
     info!("Removing any gordo-deploy jobs for Gordo: '{}'", &gordo.metadata.name);
 
-    let jobs = Api::v1Job(client.clone()).within(&namespace);
+    let jobs: Api<Job> = Api::namespaced(client.clone(), &namespace);
     match jobs.list(&ListParams::default()).await {
         Ok(job_list) => {
             join_all(
@@ -155,30 +150,35 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespa
                     .filter(|job| job.metadata.labels.get("gordoProjectName") == Some(&gordo.metadata.name))
                     .map(|job| {
                         async move {
-                            let jobs_api = Api::v1Job(client.clone()).within(&namespace);
-                            match jobs_api.delete(&job.metadata.name, &DeleteParams::default()).await {
-                                Ok(_) => {
-                                    info!(
-                                        "Successfully requested to delete job: {}, waiting for it to die.",
-                                        &job.metadata.name
-                                    );
-
-                                    // Keep trying to get the job, it will fail when it no longer exists.
-                                    while let Ok(job) = jobs_api.get(&job.metadata.name).await {
+                            let jobs_api: Api<Job> = Api::namespaced(client.clone(), &namespace);
+                            if let Some(name) = job.metadata.name {
+                                match jobs_api.delete(&name, &DeleteParams::default()).await {
+                                    Ok(_) => {
                                         info!(
-                                            "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
-                                            job.metadata.resourceVersion, job.metadata.generation
+                                            "Successfully requested to delete job: {}, waiting for it to die.",
+                                            name
                                         );
-                                        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+
+                                        // Keep trying to get the job, it will fail when it no longer exists.
+                                        while let Ok(job) = jobs_api.get(&name).await {
+                                            info!(
+                                                "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
+                                                job.metadata.resourceVersion, job.metadata.generation
+                                            );
+                                            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+                                        }
+                                    }
+                                    Err(err) => {
+                                        error!(
+                                            "Failed to delete old gordo job: '{}' with error: {:?}",
+                                            &job.metadata.name, err
+                                        );
+                                        kube_error_happened("delete_gordo", err);
                                     }
                                 }
-                                Err(err) => {
-                                  error!(
-                                    "Failed to delete old gordo job: '{}' with error: {:?}",
-                                    &job.metadata.name, err
-                                  );
-                                  kube_error_happened("delete_gordo", err);
-                                }
+                            } else {
+                                error!("Job does not have .metadata.name");
+                                KUBE_ERRORS.with_label_values(&["delete_gordo", "empty_name"]).inc_by(1);
                             }
                         }
                     }),

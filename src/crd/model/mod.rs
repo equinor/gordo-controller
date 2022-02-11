@@ -1,12 +1,11 @@
 pub mod model;
 pub use model::*;
 
-use kube::api::{Api, PatchParams};
+use kube::api::{Api, PatchParams, Patch};
 use log::{error, info};
 use serde_json::json;
 
-use crate::crd::gordo::GordoStatus;
-use crate::Controller;
+use crate::crd::gordo::gordo::{Gordo, GordoStatus};
 use crate::crd::metrics::{kube_error_happened, MODEL_PULLING};
 
 pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, kube::Error>{
@@ -15,19 +14,16 @@ pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>,
         Some(revision) => Some(revision.to_string()),
         None => None,
     };
-    patch_model_status(model_resource, &model.metadata.name, status.clone()).await
+    patch_model_status(model_resource, &model.metadata.name, &status).await
 }
 
-pub async fn monitor_models(controller: &Controller) -> () {
-    let models = controller.model_state().await;
-    let gordos = controller.gordo_state().await;
-
+pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, models: Vec<Model>, gordos: Vec<Gordo>) -> () {
     for model in &models {
         if let None = model.status {
             //TODO Update state here
             //let name = model.spec.config["name"].as_str().unwrap_or("unknown");
             info!("Unknown status for model {}", model.metadata.name);
-            match patch_model_with_default_status(&controller.model_resource, &model).await {
+            match patch_model_with_default_status(model_api, &model).await {
                 Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
                 Err(err) => {
                   error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
@@ -55,9 +51,8 @@ pub async fn monitor_models(controller: &Controller) -> () {
             let patch = serde_json::to_vec(&json!({ "status": status })).unwrap();
             let pp = PatchParams::default();
 
-            if let Err(err) = controller
-                .gordo_resource
-                .patch_status(&gordo.metadata.name, &pp, patch)
+            if let Err(err) = gordo_api
+                .patch_status(&gordo.metadata.name, &pp, &Patch::Merge(patch))
                 .await
             {
                 error!(
