@@ -28,15 +28,17 @@ pub mod crd;
 pub mod deploy_job;
 pub mod views;
 pub mod utils;
+pub mod errors;
 
 use crate::crd::{
-    gordo::{load_gordo_resource, monitor_gordos, Gordo},
-    model::{load_model_resource, monitor_models, Model},
+    gordo::{Gordo},
+    model::{monitor_models, Model},
     pod::{monitor_pods},
-    argo::{load_argo_workflow_resource, monitor_wf, ArgoWorkflow},
+    argo::{monitor_wf, Workflow},
 };
-pub use deploy_job::DeployJob;
+pub use deploy_job::create_deploy_job;
 use std::collections::{HashMap, BTreeMap};
+use errors::Error;
 
 fn default_deploy_repository() -> String {
     "".to_string()
@@ -127,6 +129,75 @@ impl Default for GordoEnvironmentConfig {
     }
 }
 
+#[warn(unused_variables)]
+async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction, Error> {
+    info!("reconcile gordo {:?}", gordo);
+    let namespace = gordo
+        .metadata
+        .namespace
+        .as_ref()
+        .ok_or(Error::MissingKey(".metadata.namespace"))?;
+    info!("namespace {:?}", namespace);
+
+    let client = ctx.get_ref().client.clone();
+    let gordo_name = gordo.metadata.name.as_ref().ok_or(Error::MissingKey(".metadata.name"))?;
+    let model_labels = format!("applications.gordo.equinor.com/project-name={}", gordo_name);
+    let lp = ListParams::default().labels(&model_labels);
+
+    let model_api: Api<Model> = Api::namespaced(client.clone(), namespace);
+    let models_obj_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
+    let models: Vec<_> = models_obj_list.iter().collect();
+    info!("models {:?}", models);
+
+    let workflow_api: Api<Workflow> = Api::namespaced(client.clone(), namespace);
+    let workflows_obj_list = workflow_api.list(&lp).await.map_err(Error::KubeError)?;
+    let workflows: Vec<_> = workflows_obj_list.iter().collect();
+    info!("workflows {:?}", workflows);
+
+    Ok(ReconcilerAction {
+        requeue_after: Some(Duration::from_secs(300)),
+    })
+}
+
+
+fn error_policy(_error: &Error, _ctx: Context<Data>) -> ReconcilerAction {
+    ReconcilerAction {
+        requeue_after: Some(Duration::from_secs(60)),
+    }
+}
+
+struct Data {
+    client: Client,
+}
+
+#[actix_rt::main]
+async fn main() -> Result<(), kube::Error> {
+    //TODO do not forget about RUST_LOG env in all deployment scripts
+    env_logger::init();
+
+    let client = Client::try_default().await?;
+
+    let gordo: Api<Gordo> = Api::default_namespaced(client.clone());
+    let model: Api<Pod> = Api::default_namespaced(client.clone());
+    let workflow: Api<Workflow> = Api::default_namespaced(client.clone());
+
+    log::info!("starting gordo-controller");
+
+    Controller::new(gordo, ListParams::default())
+        .owns(model, ListParams::default())
+        .owns(workflow, ListParams::default())
+        .shutdown_on_signal()
+        .run(reconcile, error_policy, Context::new(Data { client }))
+        .for_each(|res| async move {
+            match res {
+                Ok(o) => info!("reconciled {:?}", o),
+                Err(e) => warn!("reconcile failed: {}", e),
+            }
+        })
+        .await;
+    log::info!("controller terminated");
+    Ok(())
+}
 
 #[derive(Clone)]
 pub struct Manager {
