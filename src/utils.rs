@@ -5,30 +5,16 @@ use k8s_openapi::{
 use kube::{
     api::{Resource},
 };
-use std::error::Error;
-use std::fmt;
-
-#[derive(Debug)]
-struct MissingObjectKey {
-    key: String,
-}
-
-impl fmt::Display for MissingObjectKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Key not found '{}'", self.key)
-    }
-}
-
-impl Error for MissingObjectKey {}
+use crate::errors::Error;
 
 pub fn object_to_owner_reference<K: Resource<DynamicType = ()>>(
     meta: ObjectMeta,
-) -> Result<OwnerReference, Box<dyn Error>> {
+) -> Result<OwnerReference, Error> {
     Ok(OwnerReference {
         api_version: K::api_version(&()).to_string(),
         kind: K::kind(&()).to_string(),
-        name: meta.name.ok_or(MissingObjectKey{ key: ".metadata.name".to_string() })?,
-        uid: meta.uid.ok_or(MissingObjectKey{ key: ".metadata.uid".to_string() })?,
+        name: meta.name.ok_or(Error::MissingKey(".metadata.name"))?,
+        uid: meta.uid.ok_or(Error::MissingKey(".metadata.uid"))?,
         ..OwnerReference::default()
     })
 }

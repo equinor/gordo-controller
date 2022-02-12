@@ -16,7 +16,7 @@ use std::iter::FromIterator;
 
 /// Generate a name which is no greater than 63 chars in length
 /// always keeping the `prefix` and as much of `suffix` as possible, favoring its ending.
-pub fn deploy_job_name(prefix: &str, suffix: &str) -> String {
+fn deploy_job_name(prefix: &str, suffix: &str) -> String {
     let suffix = suffix
         .chars()
         .rev()
@@ -45,7 +45,7 @@ fn deploy_image(gordo: &Gordo, config: &Config) -> String {
     }
 }
 
-fn container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) -> Container {
+fn deploy_container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) -> Container {
     let mut container = Container::default();
     container.name = "gordo-deploy".to_string();
     let deploy_image = deploy_image(gordo, config);
@@ -72,21 +72,21 @@ fn container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) -> Contai
     container
 }
 
-fn pod_spec(containers: Vec<Container>) -> PodSpec {
+fn deploy_pod_spec(containers: Vec<Container>) -> PodSpec {
     let mut pod_spec = PodSpec::default();
     pod_spec.containers = containers;
     pod_spec.restart_policy = Some("Never".to_string());
     pod_spec
 }
 
-fn pod_spec_metadata(name: &str, resources_labels: &Option<BTreeMap<String, String>>) -> OpenApiObjectMeta {
+fn deploy_pod_spec_metadata(name: &str, resources_labels: &Option<BTreeMap<String, String>>) -> OpenApiObjectMeta {
     let mut spec_metadata = OpenApiObjectMeta::default();
     spec_metadata.name = Some(name.to_string());
     spec_metadata.labels = resources_labels.to_owned();
     spec_metadata
 }
 
-fn labels(gordo: &Gordo, resources_labels: &Option<BTreeMap<String, String>>) -> BTreeMap<String, String> {
+fn deploy_labels(gordo: &Gordo, resources_labels: &Option<BTreeMap<String, String>>) -> BTreeMap<String, String> {
     let mut labels = BTreeMap::new();
     labels.insert("gordoProjectName".to_owned(), gordo.metadata.name.to_owned());
     if let Some(additional_labels) = resources_labels {
@@ -153,13 +153,13 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
         })
     });
 
-    let container = container(&gordo, environment, config);
-    let pod_spec = pod_spec(vec![container]);
-    let spec_metadata = pod_spec_metadata(&job_name, resources_labels);
+    let container = deploy_container(&gordo, environment, config);
+    let pod_spec = deploy_pod_spec(vec![container]);
+    let spec_metadata = deploy_pod_spec_metadata(&job_name, resources_labels);
 
     let mut metadata = ObjectMeta::default();
     metadata.name = Some(job_name.clone());
-    metadata.labels = Some(labels(&gordo, resources_labels));
+    metadata.labels = Some(deploy_labels(&gordo, resources_labels));
     metadata.annotations = Default::default();
     metadata.owner_references = Some(vec![owner_references]);
     metadata.finalizers = Some(vec![]);
