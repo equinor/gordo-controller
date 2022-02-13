@@ -1,7 +1,7 @@
 use futures::future::join4;
 use std::result::{Result};
 use kube::config;
-use kube::{api::Object, config::Configuration};
+use kube::api::Object;
 use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
 use log::error;
 use serde::Deserialize;
@@ -18,11 +18,12 @@ use k8s_openapi::{
     apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference},
 };
 use log::{info, warn};
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use serde_json::{Value};
 use tokio::time::Duration;
 use schemars::JsonSchema;
 use thiserror::Error;
+use std::{io::BufRead, sync::Arc};
 
 pub mod crd;
 pub mod deploy_job;
@@ -168,13 +169,10 @@ fn error_policy(_error: &Error, _ctx: Context<Data>) -> ReconcilerAction {
 
 struct Data {
     client: Client,
+    config: Config,
 }
 
-#[actix_rt::main]
-async fn main() -> Result<(), kube::Error> {
-    //TODO do not forget about RUST_LOG env in all deployment scripts
-    env_logger::init();
-
+pub async fn init_controller(client: Client, config: Config) -> Result<(), kube::Error> {
     let client = Client::try_default().await?;
 
     let gordo: Api<Gordo> = Api::default_namespaced(client.clone());
@@ -187,7 +185,7 @@ async fn main() -> Result<(), kube::Error> {
         .owns(model, ListParams::default())
         .owns(workflow, ListParams::default())
         .shutdown_on_signal()
-        .run(reconcile, error_policy, Context::new(Data { client }))
+        .run(reconcile, error_policy, Context::new(Data { client, config }))
         .for_each(|res| async move {
             match res {
                 Ok(o) => info!("reconciled {:?}", o),
