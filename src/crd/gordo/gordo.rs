@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use schemars::JsonSchema;
 
-use crate::{DeployJob, Config};
+use crate::{create_deploy_job, Config};
 use crate::crd::metrics::{kube_error_happened, KUBE_ERRORS};
 
 pub type GenerationNumber = Option<u32>;
@@ -96,7 +96,14 @@ pub async fn start_gordo_deploy_job(
     config: &Config,
 ) -> () {
     // Job manifest for launching this gordo config into a workflow
-    let job = DeployJob::new(&gordo, &config);
+    let created_job = create_deploy_job(&gordo, &config);
+    let job = match created_job {
+        Some(job) => job,
+        None => {
+            error!("Job is empty");
+            return
+        }
+    };
 
     // Before launching this job, remove previous jobs for this project
     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
@@ -104,10 +111,9 @@ pub async fn start_gordo_deploy_job(
     // Send off job, later we can add support to watching the job if needed via `jobs.watch(..)`
     info!("Launching job - {}!", &job.metadata.name);
     let postparams = PostParams::default();
-    let jobs = Api::v1Job(client.clone()).within(&namespace);
+    let jobs: Api<Job> = Api::namespaced(client.clone(), &namespace);
 
-    let serialized_job_manifest = serde_json::to_vec(&job).unwrap();
-    match jobs.create(&postparams, serialized_job_manifest).await {
+    match jobs.create(&postparams, &job).await {
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
         Err(e) => {
           error!("Failed to submit job with error: {:?}", e);
