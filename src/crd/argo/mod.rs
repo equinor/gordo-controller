@@ -106,7 +106,7 @@ fn last_container_terminated_status(terminated_statuses: Vec<&ContainerStateTerm
     }
 }
 
-pub async fn monitor_wf(model_api: &Api<Model>, workflows: Vec<Workflow>, models: Vec<Model>, pods: Vec<Pod>) -> () {
+pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, models: &Vec<Model>, pods: &Vec<Pod>) -> () {
     // TODO this function definitely need to be refactored
     let mut model_phases_metrics = ModelPhasesMetrics::new(None);
 

@@ -1,29 +1,19 @@
-use futures::future::join4;
 use std::result::{Result};
-use kube::config;
-use kube::api::Object;
-use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
-use log::error;
 use serde::Deserialize;
 use serde_json;
 use futures::StreamExt;
 use kube::{
-    api::{Api, ListParams, Resource},
+    api::{Api, ListParams},
     client::Client,
-    CustomResource,
 };
 use kube_runtime::controller::{Context, Controller, ReconcilerAction};
 use k8s_openapi::{
     api::core::v1::Pod,
-    apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference},
 };
-use log::{info, warn};
-use serde::{Serialize};
-use serde_json::{Value};
+use log::{info, warn, debug};
 use tokio::time::Duration;
-use schemars::JsonSchema;
-use thiserror::Error;
-use std::{io::BufRead, sync::Arc};
+use crate::crd::metrics::RECONCILE_ERROR;
+use futures::future::BoxFuture;
 
 pub mod crd;
 pub mod deploy_job;
@@ -132,28 +122,38 @@ impl Default for GordoEnvironmentConfig {
 
 #[warn(unused_variables)]
 async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction, Error> {
-    info!("reconcile gordo {:?}", gordo);
+    debug!("reconcile gordo {:?}", gordo);
     let namespace = gordo
         .metadata
         .namespace
         .as_ref()
         .ok_or(Error::MissingKey(".metadata.namespace"))?;
-    info!("namespace {:?}", namespace);
 
     let client = ctx.get_ref().client.clone();
+
+    let gordo_api: Api<Gordo> = Api::namespaced(client.clone(), namespace);
     let gordo_name = gordo.metadata.name.as_ref().ok_or(Error::MissingKey(".metadata.name"))?;
+    info!("gordo: {:?}, namespace: {:?}", gordo_name, namespace);
     let model_labels = format!("applications.gordo.equinor.com/project-name={}", gordo_name);
     let lp = ListParams::default().labels(&model_labels);
 
     let model_api: Api<Model> = Api::namespaced(client.clone(), namespace);
     let models_obj_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
-    let models: Vec<_> = models_obj_list.iter().collect();
-    info!("models {:?}", models);
+    let models: Vec<_> = models_obj_list.into_iter().collect();
+    debug!("models {:?}", models);
+    monitor_models(&model_api, &gordo_api, &models, &vec![gordo]);
 
     let workflow_api: Api<Workflow> = Api::namespaced(client.clone(), namespace);
     let workflows_obj_list = workflow_api.list(&lp).await.map_err(Error::KubeError)?;
-    let workflows: Vec<_> = workflows_obj_list.iter().collect();
-    info!("workflows {:?}", workflows);
+    let workflows: Vec<_> = workflows_obj_list.into_iter().collect();
+    debug!("workflows {:?}", workflows);
+
+    let pod_api: Api<Pod> = Api::namespaced(client.clone(), namespace);
+    let pod_obj_list = pod_api.list(&lp).await.map_err(Error::KubeError())?;
+    let pods: Vec<_> = pod_obj_list.into_iter().collect();
+    debug!("pods {:?}", pods);
+
+    monitor_wf(&model_api, &workflows, &models, &pods);
 
     Ok(ReconcilerAction {
         requeue_after: Some(Duration::from_secs(300)),
@@ -172,9 +172,7 @@ struct Data {
     config: Config,
 }
 
-pub async fn init_controller(client: Client, config: Config) -> Result<(), kube::Error> {
-    let client = Client::try_default().await?;
-
+pub async fn init_controller(client: Client, config: Config) -> BoxFuture<'static, ()> {
     let gordo: Api<Gordo> = Api::default_namespaced(client.clone());
     let model: Api<Pod> = Api::default_namespaced(client.clone());
     let workflow: Api<Workflow> = Api::default_namespaced(client.clone());
@@ -189,108 +187,11 @@ pub async fn init_controller(client: Client, config: Config) -> Result<(), kube:
         .for_each(|res| async move {
             match res {
                 Ok(o) => info!("reconciled {:?}", o),
-                Err(e) => warn!("reconcile failed: {}", e),
+                Err(e) => {
+                    warn!("reconcile failed: {}", e);
+                    RECONCILE_ERROR.with_label_values(&[]).inc();
+                },
             }
         })
-        .await;
-    log::info!("controller terminated");
-    Ok(())
-}
-
-#[derive(Clone)]
-pub struct Manager {
-    client: APIClient,
-    namespace: String,
-    gordo_resource: Api<Gordo>,
-    model_rf: Reflector<Model>,
-    model_resource: Api<Model>,
-    pod_rf: Reflector<Object<PodSpec, PodStatus>>,
-    pod_resource: Api<Object<PodSpec, PodStatus>>,
-    wf_rf: Reflector<ArgoWorkflow>,
-    wf_resource: Api<ArgoWorkflow>,
-    config: Config,
-}
-
-impl Manager {
-    /// Create a new instance of the Gordo Controller
-    pub async fn new(kube_config: Configuration, config: Config) -> Self {
-        let timeout = 15;
-
-        let namespace = kube_config.default_ns.to_owned();
-        let client = APIClient::new(kube_config);
-
-        let model_resource = load_model_resource(&client, &namespace);
-        let model_rf = Reflector::new(model_resource.clone()).timeout(timeout).init().await.unwrap();
-
-        let gordo_resource = load_gordo_resource(&client, &namespace);
-        let gordo_rf = Reflector::new(gordo_resource.clone()).timeout(timeout).init().await.unwrap();
-
-        let pod_resource = Api::v1Pod(client.clone()).within(&namespace);
-        let pod_rf = Reflector::new(pod_resource.clone()).timeout(timeout).labels("app==gordo-model-builder").init().await.unwrap();
-
-        let wf_resource = load_argo_workflow_resource(&client, &namespace);
-        let wf_rf = Reflector::new(wf_resource.clone()).timeout(timeout).init().await.unwrap();
-
-        Controller {
-            client,
-            namespace,
-            gordo_rf,
-            gordo_resource,
-            model_rf,
-            model_resource,
-            pod_rf,
-            pod_resource,
-            wf_rf,
-            wf_resource,
-            config,
-        }
-    }
-
-    /// Poll the Gordo and Model reflectors
-    async fn poll(&self) -> Result<(), kube::Error> {
-        // Poll both reflectors for Models and Gordos
-        let (result1, result2, result3, result4) = join4(self.gordo_rf.poll(), self.model_rf.poll(), self.pod_rf.poll(), self.wf_rf.poll()).await;
-
-        // Make changes based on the current state
-        join4(monitor_gordos(&self), monitor_models(&self), monitor_pods(&self), monitor_wf(&self)).await;
-
-        // Return any error, or return Ok
-        result1?;
-        result2?;
-        result3?;
-        result4?;
-        Ok(())
-    }
-
-    /// Current state of Gordos
-    pub async fn gordo_state(&self) -> Vec<Gordo> {
-        self.gordo_rf.state().await.unwrap_or_default()
-    }
-    /// Current state of Models
-    pub async fn model_state(&self) -> Vec<Model> {
-        self.model_rf.state().await.unwrap_or_default()
-    }
-    pub async fn wf_state(&self) -> Vec<ArgoWorkflow> {
-        self.wf_rf.state().await.unwrap_or_default()
-    }
-    /// Current state of Pods
-    pub async fn pod_state(&self) -> Vec<Object<PodSpec, PodStatus>> {
-        self.pod_rf.state().await.unwrap_or_default()
-    }
-}
-
-pub async fn controller_init() {
-    let controller = Controller::new(kube_config, config).await;
-
-    // Continuously poll `Controller::poll` to keep the app state current
-    let c1 = controller.clone();
-    tokio::spawn(async move {
-        loop {
-            if let Err(err) = c1.poll().await {
-                error!("Controller polling encountered an error: {:?}", err);
-                crd::metrics::KUBE_ERRORS.with_label_values(&["controller_polling", "unknown"]).inc_by(1);
-            }
-        }
-    });
-    Ok(controller)
+        .boxed()
 }

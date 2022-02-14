@@ -17,7 +17,7 @@ pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>,
     patch_model_status(model_resource, &model.metadata.name, &status).await
 }
 
-pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, models: Vec<Model>, gordos: Vec<Gordo>) -> () {
+pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, models: &Vec<Model>, gordos: &Vec<Gordo>) -> () {
     for model in &models {
         if let None = model.status {
             //TODO Update state here

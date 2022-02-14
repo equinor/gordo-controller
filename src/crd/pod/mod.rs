@@ -30,7 +30,7 @@ async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_sta
     }
 }
 
-pub async fn monitor_pods(model_api: &Api<Model>, workflows: Vec<Workflow>, models: Vec<Model>, pods: Vec<Pod>) -> () {
+pub async fn monitor_pods(model_api: &Api<Model>, models: &Vec<Model>, pods: &Vec<Pod>) -> () {
     //Filtering only active models
     let actual_models: Vec<_> = models.into_iter()
         .filter(|model| match &model.status {
@@ -45,11 +45,11 @@ pub async fn monitor_pods(model_api: &Api<Model>, workflows: Vec<Workflow>, mode
     //TODO to perform the models-pods matching in O(1) makes sense to do collect into some sort of HashMap here
     let actual_pods_labels: Vec<_> = pods.into_iter()
         .filter(|pod| pod.metadata.labels.get("applications.gordo.equinor.com/model-name").is_some())
-        .flat_map(|pod| match pod.status {
+        .flat_map(|pod| match *pod.status {
             Some(status) => match status.phase {
                 Some(phase) => {
                     if phase == RUNNING || phase == SUCCEEDED {
-                        Some((phase, pod.metadata.labels))
+                        Some((phase, *pod.metadata.labels))
                     } else {
                         None
                     }

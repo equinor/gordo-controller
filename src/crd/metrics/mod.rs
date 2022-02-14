@@ -53,6 +53,11 @@ lazy_static! {
       .const_label("name", "argo"),
       &[]
     ).unwrap();
+    pub static ref RECONCILE_ERROR: IntCounterVec = IntCounterVec::new(
+      Opts::new("reconcile_error", "Controller reconcile errors")
+      .namespace(METRICS_NAMESPACE)
+      &[]
+    ).unwrap();
     pub static ref PROJECTS: Mutex<HashMap<String, bool>> = Mutex::new(HashMap::new());
 }
 
@@ -65,6 +70,7 @@ pub fn custom_metrics(registry: &Registry) {
   registry.register(Box::new(MODEL_PULLING.clone())).unwrap();
   registry.register(Box::new(POD_PULLING.clone())).unwrap();
   registry.register(Box::new(ARGO_PULLING.clone())).unwrap();
+  registry.register(Box::new(RECONCILE_ERROR.clone())).unwrap();
 }
 
 pub fn kube_error_name<'a>(err: Error) -> &'a str {

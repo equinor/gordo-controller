@@ -1,5 +1,8 @@
 use actix_web::{middleware, web, App, HttpServer};
-use gordo_controller::{controller_init, crd, views, GordoEnvironmentConfig, Config};
+use gordo_controller::{init_controller, crd, views, GordoEnvironmentConfig, Config};
+use kube::{
+    client::Client,
+};
 use actix_web_prom::PrometheusMetrics;
 use prometheus::{Registry};
 use kube::config;
@@ -24,15 +27,16 @@ async fn main() -> () {
 
     let bind_address = format!("{}:{}", &gordo_config.server_host, gordo_config.server_port);
 
-    let controller = controller_init(kube_config, gordo_config).await.unwrap();
+    let client = Client::try_default().await?;
+    let controller = init_controller(client, gordo_config).await;
 
     let registry = Registry::new();
     crd::metrics::custom_metrics(&registry);
     let prometheus = PrometheusMetrics::new_with_registry(registry, crd::metrics::METRICS_NAMESPACE, Some("/metrics"), None).unwrap();
 
-    HttpServer::new(move || {
+    let run = HttpServer::new(move || {
         App::new()
-            .data(controller.clone())
+            .data(client.clone())
             .wrap(prometheus.clone())
             .wrap(middleware::Logger::default()
                     .exclude("/health")
@@ -43,10 +47,13 @@ async fn main() -> () {
             .service(web::resource("/gordos/{name}").to(views::get_gordo))
             .service(web::resource("/models").to(views::models))
             .service(web::resource("/models/{gordo_name}").to(views::models_by_gordo))
-    })
-    .bind(&bind_address)
-    .expect(&format!("Could not bind to '{}'", &bind_address))
-    .run()
-    .await
-    .unwrap()
+        })
+        .bind(&bind_address)
+        .expect(&format!("Could not bind to '{}'", &bind_address))
+        .run();
+
+    tokio::select! {
+        _ = drainer => warn!("controller drained"),
+        _ = run => info!("actix exited"),
+    }
 }
