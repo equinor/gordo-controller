@@ -2,7 +2,7 @@
 
 set -e
 
-MAX_ATTEMPTS=20
+MAX_ATTEMPTS=7
 SLEEP_TIMEOUT=3
 NAMESPACE=default
 
@@ -28,10 +28,12 @@ done
 attempt=0
 until is_not_running
 do
-    sleep 3
+    sleep $((SLEEP_TIMEOUT*attempt))
     attempt=$((attempt+1))
     if [ "$attempt" -gt "$MAX_ATTEMPTS" ]; then
         echo "You have reached the maximum attempt #$MAX_ATTEMPTS"
+        echo "Got this:"
+        kubectl get pods -n "$NAMESPACE" -l app=gordo-controller
         exit 1
     fi
 done
