@@ -6,6 +6,7 @@ jobs:
   test:
     name: Test ${{ matrix.rust }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    if: false # Temporory disabled job
     strategy:
       matrix:
         os: [ubuntu-latest]
