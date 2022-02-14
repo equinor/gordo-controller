@@ -5,7 +5,7 @@ use crate::{Config};
 pub mod gordo;
 pub use gordo::{Gordo, GordoSubmissionStatus, start_gordo_deploy_job};
 
-async fn handle_gordo_state(
+pub async fn handle_gordo_state(
     gordo: &Gordo,
     client: &Client,
     resource: &Api<Gordo>,

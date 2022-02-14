@@ -22,7 +22,7 @@ pub mod utils;
 pub mod errors;
 
 use crate::crd::{
-    gordo::{Gordo},
+    gordo::{Gordo, handle_gordo_state},
     model::{monitor_models, Model},
     pod::{monitor_pods},
     argo::{monitor_wf, Workflow},
@@ -130,12 +130,15 @@ async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction,
         .ok_or(Error::MissingKey(".metadata.namespace"))?;
 
     let client = ctx.get_ref().client.clone();
+    let config = ctx.get_ref().config.clone();
 
     let gordo_api: Api<Gordo> = Api::namespaced(client.clone(), namespace);
     let gordo_name = gordo.metadata.name.as_ref().ok_or(Error::MissingKey(".metadata.name"))?;
     info!("gordo: {:?}, namespace: {:?}", gordo_name, namespace);
     let model_labels = format!("applications.gordo.equinor.com/project-name={}", gordo_name);
     let lp = ListParams::default().labels(&model_labels);
+
+    handle_gordo_state(&gordo, &client, &gordo_api, namespace, &config);
 
     let model_api: Api<Model> = Api::namespaced(client.clone(), namespace);
     let models_obj_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
@@ -154,6 +157,7 @@ async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction,
     debug!("pods {:?}", pods);
 
     monitor_wf(&model_api, &workflows, &models, &pods);
+    monitor_pods(&model_api, &models, &pods);
 
     Ok(ReconcilerAction {
         requeue_after: Some(Duration::from_secs(300)),
