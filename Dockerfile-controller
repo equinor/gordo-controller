@@ -19,5 +19,7 @@ RUN cargo build --release
 # Controller
 FROM busybox:1.31-musl
 COPY --from=builder /volume/target/x86_64-unknown-linux-musl/release/gordo-controller /usr/local/bin/gordo-controller
-RUN chmod +x /usr/local/bin/gordo-controller
+RUN adduser -D -u 999 -g user user
+RUN chmod +x /usr/local/bin/gordo-controller && chown user /usr/local/bin/gordo-controller
+USER 999
 CMD ["gordo-controller"]
