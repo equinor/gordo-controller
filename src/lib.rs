@@ -144,7 +144,7 @@ async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction,
     let models_obj_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
     let models: Vec<_> = models_obj_list.into_iter().collect();
     debug!("models {:?}", models);
-    monitor_models(&model_api, &gordo_api, &models, &vec![gordo]);
+    monitor_models(&model_api, &gordo_api, &models, &vec![gordo.clone()]);
 
     let workflow_api: Api<Workflow> = Api::namespaced(client.clone(), namespace);
     let workflows_obj_list = workflow_api.list(&lp).await.map_err(Error::KubeError)?;

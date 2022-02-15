@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 
 /// Represents the 'spec' field of a Model custom resource definition
 #[derive(CustomResource, Serialize, Deserialize, Clone, Debug, JsonSchema)]
-#[kube(group = "equinor.com", version = "v1", kind = "Model", namespaced)]
+#[kube(group = "equinor.com", version = "v1", status="ModelStatus", kind = "Model", namespaced)]
 #[kube(shortname = "gm")]
 pub struct ModelSpec {
     #[serde(rename = "gordo-version")]
