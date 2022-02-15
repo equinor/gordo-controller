@@ -55,7 +55,7 @@ lazy_static! {
     ).unwrap();
     pub static ref RECONCILE_ERROR: IntCounterVec = IntCounterVec::new(
       Opts::new("reconcile_error", "Controller reconcile errors")
-      .namespace(METRICS_NAMESPACE)
+      .namespace(METRICS_NAMESPACE),
       &[]
     ).unwrap();
     pub static ref PROJECTS: Mutex<HashMap<String, bool>> = Mutex::new(HashMap::new());

@@ -26,3 +26,7 @@ pub fn env_var(name: &str, value: &str) -> EnvVar {
         value_from: None,
     }
 }
+
+pub fn get_revision() -> String {
+    chrono::Utc::now().timestamp_millis().to_string()
+}

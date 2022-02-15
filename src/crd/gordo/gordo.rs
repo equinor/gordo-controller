@@ -15,6 +15,7 @@ use schemars::JsonSchema;
 
 use crate::{create_deploy_job, Config};
 use crate::crd::metrics::{kube_error_happened, KUBE_ERRORS};
+use crate::utils::get_revision;
 
 pub type GenerationNumber = Option<u32>;
 
@@ -27,7 +28,7 @@ pub struct GordoConfig {
 }
 
 #[derive(CustomResource, Debug, Clone, Deserialize, Serialize, JsonSchema)]
-#[kube(group = "equinor.com", version = "v1", kind = "Gordo", namespaced)]
+#[kube(group = "equinor.com", version = "v1", kind = "Gordo", status="GordoStatus", namespaced)]
 #[kube(shortname = "gd")]
 pub struct ConfigMapGeneratorSpec {
     #[serde(rename = "deploy-version")]
@@ -51,7 +52,7 @@ impl GordoConfig {
 }
 
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct GordoStatus {
     #[serde(rename = "n-models", default)]
     pub n_models: usize,
@@ -76,7 +77,7 @@ impl From<&Gordo> for GordoStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub enum GordoSubmissionStatus {
     Submitted(GenerationNumber),
 }
@@ -96,6 +97,8 @@ pub async fn start_gordo_deploy_job(
     config: &Config,
 ) -> () {
     // Job manifest for launching this gordo config into a workflow
+    let revision = get_revision();
+    let gordo_name = gordo.metadata.name.unwrap().to_owned();
     let created_job = create_deploy_job(&gordo, &config);
     let job = match created_job {
         Some(job) => job,
@@ -108,8 +111,9 @@ pub async fn start_gordo_deploy_job(
     // Before launching this job, remove previous jobs for this project
     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
 
+    let job_name = job.metadata.name.unwrap();
     // Send off job, later we can add support to watching the job if needed via `jobs.watch(..)`
-    info!("Launching job - {}!", &job.metadata.name);
+    info!("Launching job - {}!", job_name);
     let postparams = PostParams::default();
     let jobs: Api<Job> = Api::namespaced(client.clone(), &namespace);
 
@@ -122,16 +126,16 @@ pub async fn start_gordo_deploy_job(
     }
 
     let mut status = GordoStatus::from(gordo);
-    status.project_revision = job.revision.to_owned();
+    status.project_revision = revision;
 
     // Update the status of this job
     info!(
         "Setting status of this gordo '{}' to '{:?}'",
-        &gordo.metadata.name, &status
+        &gordo_name, &status
     );
     let patch = json!({ "status": status });
     match resource
-        .patch_status(&gordo.metadata.name, &PatchParams::default(), &Patch::Merge(patch))
+        .patch_status(&job_name, &PatchParams::default(), &Patch::Merge(patch))
         .await
     {
         Ok(o) => info!("Patched status: {:?}", o.status),
@@ -144,7 +148,8 @@ pub async fn start_gordo_deploy_job(
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
 pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace: &str) -> () {
-    info!("Removing any gordo-deploy jobs for Gordo: '{}'", &gordo.metadata.name);
+    let gordo_name = gordo.metadata.name.unwrap();
+    info!("Removing any gordo-deploy jobs for Gordo: '{}'", &gordo_name);
 
     let jobs: Api<Job> = Api::namespaced(client.clone(), &namespace);
     match jobs.list(&ListParams::default()).await {
