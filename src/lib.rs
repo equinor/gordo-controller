@@ -152,7 +152,7 @@ async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction,
     debug!("workflows {:?}", workflows);
 
     let pod_api: Api<Pod> = Api::namespaced(client.clone(), namespace);
-    let pod_obj_list = pod_api.list(&lp).await.map_err(Error::KubeError())?;
+    let pod_obj_list = pod_api.list(&lp).await.map_err(Error::KubeError)?;
     let pods: Vec<_> = pod_obj_list.into_iter().collect();
     debug!("pods {:?}", pods);
 

@@ -7,4 +7,7 @@ pub enum Error {
 
     #[error("Kube API Error: {0}")]
     KubeError(#[source] kube::Error),
+
+    #[error("{0} is empty")]
+    NotFound(&'static str),
 }
