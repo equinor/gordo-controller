@@ -98,7 +98,7 @@ pub async fn start_gordo_deploy_job(
 ) -> () {
     // Job manifest for launching this gordo config into a workflow
     let revision = get_revision();
-    let gordo_name = gordo.metadata.name.unwrap().to_owned();
+    let gordo_name = gordo.metadata.name.to_owned().unwrap().to_owned();
     let created_job = create_deploy_job(&gordo, &config);
     let job = match created_job {
         Some(job) => job,
@@ -111,7 +111,7 @@ pub async fn start_gordo_deploy_job(
     // Before launching this job, remove previous jobs for this project
     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
 
-    let job_name = job.metadata.name.unwrap();
+    let job_name = job.metadata.name.to_owned().unwrap();
     // Send off job, later we can add support to watching the job if needed via `jobs.watch(..)`
     info!("Launching job - {}!", job_name);
     let postparams = PostParams::default();
@@ -158,7 +158,13 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
                 job_list
                     .items
                     .into_iter()
-                    .filter(|job| job.metadata.labels.get("gordoProjectName") == Some(&gordo.metadata.name))
+                    .filter(move |job| match job.metadata.labels {
+                        Some(labels) => match labels.get("gordoProjectName") {
+                            Some(project_name) => project_name == &gordo_name,
+                            None => false,
+                        },
+                        None => false,
+                    })
                     .map(|job| {
                         async move {
                             let jobs_api: Api<Job> = Api::namespaced(client.clone(), &namespace);
@@ -174,15 +180,16 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
                                         while let Ok(job) = jobs_api.get(&name).await {
                                             info!(
                                                 "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
-                                                job.metadata.resourceVersion, job.metadata.generation
+                                                job.metadata.resource_version, job.metadata.generation
                                             );
                                             tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                                         }
                                     }
                                     Err(err) => {
+                                        let job_name = job.metadata.name.unwrap_or("".to_string());
                                         error!(
                                             "Failed to delete old gordo job: '{}' with error: {:?}",
-                                            &job.metadata.name, err
+                                            job_name, err
                                         );
                                         kube_error_happened("delete_gordo", err);
                                     }

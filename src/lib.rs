@@ -176,7 +176,7 @@ struct Data {
     config: Config,
 }
 
-pub async fn init_controller(client: Client, config: Config) -> BoxFuture<'static, ()> {
+pub async fn init_controller(client: Client, config: Config) {
     let gordo: Api<Gordo> = Api::default_namespaced(client.clone());
     let model: Api<Pod> = Api::default_namespaced(client.clone());
     let workflow: Api<Workflow> = Api::default_namespaced(client.clone());
@@ -196,6 +196,5 @@ pub async fn init_controller(client: Client, config: Config) -> BoxFuture<'stati
                     RECONCILE_ERROR.with_label_values(&[]).inc();
                 },
             }
-        })
-        .boxed()
+        }).await;
 }
