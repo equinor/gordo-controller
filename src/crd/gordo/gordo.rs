@@ -148,7 +148,7 @@ pub async fn start_gordo_deploy_job(
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
 pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace: &str) -> () {
-    let gordo_name = gordo.metadata.name.unwrap();
+    let gordo_name = gordo.metadata.name.to_owned().unwrap();
     info!("Removing any gordo-deploy jobs for Gordo: '{}'", &gordo_name);
 
     let jobs: Api<Job> = Api::namespaced(client.clone(), &namespace);
@@ -158,7 +158,7 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
                 job_list
                     .items
                     .into_iter()
-                    .filter(move |job| match job.metadata.labels {
+                    .filter(move |job| match &job.metadata.labels {
                         Some(labels) => match labels.get("gordoProjectName") {
                             Some(project_name) => project_name == &gordo_name,
                             None => false,
@@ -186,10 +186,9 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
                                         }
                                     }
                                     Err(err) => {
-                                        let job_name = job.metadata.name.unwrap_or("".to_string());
                                         error!(
                                             "Failed to delete old gordo job: '{}' with error: {:?}",
-                                            job_name, err
+                                            name, err
                                         );
                                         kube_error_happened("delete_gordo", err);
                                     }
