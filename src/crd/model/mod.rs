@@ -7,18 +7,26 @@ use serde_json::json;
 
 use crate::crd::gordo::gordo::{Gordo, GordoStatus};
 use crate::crd::metrics::{kube_error_happened, MODEL_PULLING};
+use crate::errors::Error;
 
-pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, kube::Error>{
+pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, Error>{
     let mut status = ModelStatus::default();
     status.revision = match model.metadata.labels.get("applications.gordo.equinor.com/project-revision") {
         Some(revision) => Some(revision.to_string()),
         None => None,
     };
-    patch_model_status(model_resource, &model.metadata.name, &status).await
+    match model.metadata.name {
+        Some(name) => patch_model_status(
+            model_resource,
+            &name,
+            &status
+        ).await.map_err(Error::KubeError),
+        None => Err(Error::MissingKey(".metadata.name")),
+    }
 }
 
 pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, models: &Vec<Model>, gordos: &Vec<Gordo>) -> () {
-    for model in &models {
+    for model in &models.iter() {
         if let None = model.status {
             //TODO Update state here
             //let name = model.spec.config["name"].as_str().unwrap_or("unknown");
@@ -26,8 +34,12 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
             match patch_model_with_default_status(model_api, &model).await {
                 Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
                 Err(err) => {
-                  error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
-                  kube_error_happened("patch_gordo", err);
+                    error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
+                    match err {
+                        Error::KubeError(kube_error) =>
+                            kube_error_happened("patch_gordo", kube_error),
+                        _ => { },
+                    }
                 }
             }
         }
