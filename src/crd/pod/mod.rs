@@ -21,10 +21,17 @@ pub const POD_MATCH_LABELS: &'static [&'static str] = &[
 ];
 
 async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_status: &ModelStatus) {
-    match patch_model_status(model_resource, &model.metadata.name, &new_status).await {
-        Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status),
+    let name = match &model.metadata.name {
+        Some(name) => name,
+        None => {
+            error!("Model metadata.name is empty");
+            return
+        }
+    };
+    match patch_model_status(model_resource, name, &new_status).await {
+        Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", name, model.status, new_model.status),
         Err(err) => {
-          error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
+          error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
           kube_error_happened("faild_to_patch_model", err);
         }
     }
@@ -43,13 +50,16 @@ pub async fn monitor_pods(model_api: &Api<Model>, models: &Vec<Model>, pods: &Ve
     }
 
     //TODO to perform the models-pods matching in O(1) makes sense to do collect into some sort of HashMap here
-    let actual_pods_labels: Vec<_> = pods.into_iter()
-        .filter(|pod| pod.metadata.labels.get("applications.gordo.equinor.com/model-name").is_some())
-        .flat_map(|pod| match *pod.status {
+    let actual_pods_labels: Vec<_> = pods.iter()
+        .filter(|pod| match pod.metadata.labels.to_owned() {
+            Some(labels) => labels.get("applications.gordo.equinor.com/model-name").is_some(),
+            None => false,
+        })
+        .flat_map(|pod| match pod.status.to_owned() {
             Some(status) => match status.phase {
                 Some(phase) => {
                     if phase == RUNNING || phase == SUCCEEDED {
-                        Some((phase, *pod.metadata.labels))
+                        pod.metadata.labels.map(|labels| (phase, labels))
                     } else {
                         None
                     }
@@ -75,7 +85,7 @@ pub async fn monitor_pods(model_api: &Api<Model>, models: &Vec<Model>, pods: &Ve
                     .map(|(phase, _)| phase)
                     .collect();
                 if pods_phases.len() > 0 {
-                    info!("Found pods in phases {:?} for the model '{}'", pods_phases, model.metadata.name);
+                    info!("Found pods in phases {:?} for the model '{}'", pods_phases, model.metadata.name.unwrap_or("".to_string()));
                     let mut new_status = status.clone();
                     let mut new_phase = new_status.phase.clone();
                     if pods_phases.iter().any(|phase| *phase == SUCCEEDED) {

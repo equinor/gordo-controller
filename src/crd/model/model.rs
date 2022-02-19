@@ -64,7 +64,7 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         .filter(move |model| {
             model
                 .metadata
-                .ownerReferences
+                .owner_references
                 .iter()
                 .any(|owner_ref| owner_ref.name == gordo.metadata.name.as_str())
         })
@@ -96,7 +96,7 @@ pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: 
 }
 
 pub fn get_model_project<'a>(model: &'a Model) -> Option<String> {
-  for ownerReference in &model.metadata.ownerReferences {
+  for ownerReference in &model.metadata.owner_references {
     if ownerReference.kind.eq("Gordo") {
       return Some(ownerReference.name.clone());
     }
