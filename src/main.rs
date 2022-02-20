@@ -1,15 +1,14 @@
 use actix_web::{middleware, web, App, HttpServer};
-use gordo_controller::{init_controller, crd, views, GordoEnvironmentConfig, Config};
+use gordo_controller::{init_controller, crd, views, GordoEnvironmentConfig, Config, errors};
 use kube::{
     client::Client,
 };
 use actix_web_prom::PrometheusMetrics;
 use prometheus::{Registry};
-use kube::config;
-use log::{info,debug};
+use log::{info,debug,warn};
 
 #[actix_rt::main]
-async fn main() -> () {
+async fn main() -> Result<(), errors::Error> {
     //TODO do not forget about RUST_LOG env in all deployment scripts
     env_logger::init();
 
@@ -20,10 +19,6 @@ async fn main() -> () {
     debug!("Environment config: {:?}", &env_config);
     let gordo_config = Config::from_env_config(env_config).unwrap();
     info!("Starting with config: {:?}", gordo_config);
-
-    let kube_config = config::load_kube_config()
-        .await
-        .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"));
 
     let bind_address = format!("{}:{}", &gordo_config.server_host, gordo_config.server_port);
 
@@ -53,7 +48,8 @@ async fn main() -> () {
         .run();
 
     tokio::select! {
-        _ = drainer => warn!("controller drained"),
+        _ = controller => warn!("controller drained"),
         _ = run => info!("actix exited"),
     }
+    Ok(())
 }

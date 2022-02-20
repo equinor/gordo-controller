@@ -138,13 +138,13 @@ async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction,
     let model_labels = format!("applications.gordo.equinor.com/project-name={}", gordo_name);
     let lp = ListParams::default().labels(&model_labels);
 
-    handle_gordo_state(&gordo, &client, &gordo_api, namespace, &config);
+    handle_gordo_state(&gordo, &client, &gordo_api, namespace, &config).await.map_err(|e| Error::KubeError(e))?;
 
     let model_api: Api<Model> = Api::namespaced(client.clone(), namespace);
     let models_obj_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
     let models: Vec<_> = models_obj_list.into_iter().collect();
     debug!("models {:?}", models);
-    monitor_models(&model_api, &gordo_api, &models, &vec![gordo.clone()]);
+    monitor_models(&model_api, &gordo_api, &models, &vec![gordo.clone()]).await;
 
     let workflow_api: Api<Workflow> = Api::namespaced(client.clone(), namespace);
     let workflows_obj_list = workflow_api.list(&lp).await.map_err(Error::KubeError)?;
@@ -156,8 +156,8 @@ async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction,
     let pods: Vec<_> = pod_obj_list.into_iter().collect();
     debug!("pods {:?}", pods);
 
-    monitor_wf(&model_api, &workflows, &models, &pods);
-    monitor_pods(&model_api, &models, &pods);
+    monitor_wf(&model_api, &workflows, &models, &pods).await;
+    monitor_pods(&model_api, &models, &pods).await;
 
     Ok(ReconcilerAction {
         requeue_after: Some(Duration::from_secs(300)),
