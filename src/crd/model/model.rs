@@ -62,7 +62,7 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         .iter()
         // Filter on OwnerReference
         .filter(move |model| {
-            match (model.metadata.owner_references, gordo.metadata.name) {
+            match (model.metadata.owner_references.to_owned(), gordo.metadata.name.to_owned()) {
                 (Some(owner_references), Some(name)) => owner_references.iter().any(|owner_ref| owner_ref.name == name),
                 _ => false,
             }
@@ -70,7 +70,7 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         // Filter on matching project revision
         .filter(move |model| match gordo.status.as_ref() {
             Some(status) => {
-                match model.metadata.labels {
+                match model.metadata.labels.to_owned() {
                     Some(labels) => labels
                         .get("applications.gordo.equinor.com/project-revision")
                         // TODO: Here for compatibility when gordo-components <= 0.46.0 used 'project-version' to refer to 'project-revision'
@@ -90,10 +90,15 @@ pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: 
 }
 
 pub fn get_model_project<'a>(model: &'a Model) -> Option<String> {
-  for ownerReference in &model.metadata.owner_references {
-    if ownerReference.kind.eq("Gordo") {
-      return Some(ownerReference.name.clone());
+    match &model.metadata.owner_references {
+        Some(owner_references) => {
+            for owner_reference in owner_references {
+                if owner_reference.kind.eq("Gordo") {
+                    return Some(owner_reference.name.clone());
+                }
+            }
+            None
+        },
+        _ => None,
     }
-  }
-  return None;
 }

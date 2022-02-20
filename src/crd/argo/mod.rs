@@ -46,8 +46,18 @@ fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [Workflow]) -> Vec<
     workflows
         .iter()
         .filter(|workflow| {
-            let workflow_labels = &workflow.metadata.labels;
-            let model_labels = &model.metadata.labels;
+            let workflow_labels = match &workflow.metadata.labels {
+                Some(workflow_labels) => workflow_labels,
+                None => {
+                    return false;
+                }
+            };
+            let model_labels = match &model.metadata.labels {
+                Some(model_labels) => model_labels,
+                None => {
+                    return false;
+                }
+            };
             let equal_labels = WF_MATCH_LABELS
                 .iter()
                 .all(move |&label_name| workflow_labels.get(label_name) == model_labels.get(label_name));
@@ -79,7 +89,12 @@ fn failed_pods_terminated_statuses<'a>(model: &'a Model, pods: &'a Vec<Pod>) -> 
             let model_labels = &model.metadata.labels;
             POD_MATCH_LABELS
                 .iter()
-                .all(|&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
+                .all(|&label_name| {
+                    match (model_labels, pod_labels) {
+                        (Some(model_labels), Some(pod_labels)) => model_labels.get(label_name) == pod_labels.get(label_name),
+                        _ => false,
+                    }
+                })
         })
         .flat_map(|pod| pod.status.as_ref())
         .flat_map(|pod_status| pod_status.container_statuses.as_ref())

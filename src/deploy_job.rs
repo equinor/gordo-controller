@@ -11,6 +11,7 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectM
 use kube::api::ObjectMeta;
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
+use log::{warn};
 
 // TODO builder
 
@@ -88,7 +89,14 @@ fn deploy_pod_spec_metadata(name: &str, resources_labels: &Option<BTreeMap<Strin
 
 fn deploy_labels(gordo: &Gordo, resources_labels: &Option<BTreeMap<String, String>>) -> BTreeMap<String, String> {
     let mut labels = BTreeMap::new();
-    labels.insert("gordoProjectName".to_owned(), gordo.metadata.name.to_owned());
+    let name = match &gordo.metadata.name {
+        Some(name) => name,
+        None => {
+            warn!("Unable to find Gordo name");
+            return labels;
+        }
+    };
+    labels.insert("gordoProjectName".to_owned(), name.to_string());
     if let Some(additional_labels) = resources_labels {
         for (label, value) in additional_labels {
             labels.insert(label.to_owned(), value.to_owned());
@@ -99,16 +107,30 @@ fn deploy_labels(gordo: &Gordo, resources_labels: &Option<BTreeMap<String, Strin
 
 pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
     // Create the job name.
+    let name = match &gordo.metadata.name {
+        Some(name) => name,
+        None => {
+            warn!("Gordo .metadata.name is empty");
+            return None;
+        }
+    };
     let job_name_suffix = format!(
         "{}-{}",
-        &gordo.metadata.name,
-        &gordo.metadata.generation.map(|v| v as u32).unwrap_or(0)
+        name,
+        &gordo.metadata.generation.unwrap_or(0)
     );
     let job_name = deploy_job_name("gordo-dpl-", &job_name_suffix);
 
-    let owner_references = object_to_owner_reference(
+    let owner_references_result = object_to_owner_reference::<Gordo>(
         gordo.metadata.clone()
     );
+    let owner_references = match owner_references_result {
+        Ok(owner_references) => owner_references,
+        Err(_) => {
+            warn!("Unable to build owner_reference");
+            return None;
+        }
+    };
     let owner_ref_as_string = serde_json::to_string(&owner_references).unwrap();
     let project_revision = chrono::Utc::now().timestamp_millis().to_string();
     let mut debug_show_workflow = "";
@@ -121,9 +143,9 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
 
     // Build up the gordo-deploy environment variables
     let mut environment: Vec<EnvVar> = vec![
-        env_var("GORDO_NAME", &gordo.metadata.name),
+        env_var("GORDO_NAME", &name),
         env_var("ARGO_SUBMIT", "true"),
-        env_var("WORKFLOW_GENERATOR_PROJECT_NAME", &gordo.metadata.name),
+        env_var("WORKFLOW_GENERATOR_PROJECT_NAME", &name),
         env_var("WORKFLOW_GENERATOR_OWNER_REFERENCES", &owner_ref_as_string),
         env_var("WORKFLOW_GENERATOR_PROJECT_REVISION", &project_revision),
         // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
@@ -161,7 +183,7 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
     metadata.name = Some(job_name.clone());
     metadata.labels = Some(deploy_labels(&gordo, resources_labels));
     metadata.annotations = Default::default();
-    metadata.owner_references = Some(vec![owner_references]);
+    metadata.owner_references = Some(vec![owner_references.clone()]);
     metadata.finalizers = Some(vec![]);
 
     let mut job_spec = JobSpec::default();
