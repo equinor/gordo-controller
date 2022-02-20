@@ -62,28 +62,22 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         .iter()
         // Filter on OwnerReference
         .filter(move |model| {
-            model
-                .metadata
-                .owner_references
-                .iter()
-                .any(|owner_ref| owner_ref.name == gordo.metadata.name.as_str())
+            match (model.metadata.owner_references, gordo.metadata.name) {
+                (Some(owner_references), Some(name)) => owner_references.iter().any(|owner_ref| owner_ref.name == name),
+                _ => false,
+            }
         })
         // Filter on matching project revision
         .filter(move |model| match gordo.status.as_ref() {
             Some(status) => {
-                model
-                    .metadata
-                    .labels
-                    .get("applications.gordo.equinor.com/project-revision")
-                    // TODO: Here for compatibility when gordo-components <= 0.46.0 used 'project-version' to refer to 'project-revision'
-                    // TODO: can remove when people have >= 0.47.0 of gordo
-                    .or_else(|| {
-                        model
-                            .metadata
-                            .labels
-                            .get("applications.gordo.equinor.com/project-version")
-                    })
-                    == Some(&status.project_revision)
+                match model.metadata.labels {
+                    Some(labels) => labels
+                        .get("applications.gordo.equinor.com/project-revision")
+                        // TODO: Here for compatibility when gordo-components <= 0.46.0 used 'project-version' to refer to 'project-revision'
+                        // TODO: can remove when people have >= 0.47.0 of gordo
+                        .or_else(|| { labels.get("applications.gordo.equinor.com/project-version") }) == Some(&status.project_revision),
+                    None => false,
+                }
             }
             None => false,
         })

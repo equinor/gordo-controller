@@ -4,7 +4,7 @@ pub use argo::*;
 use log::{error, info, warn};
 use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status, get_model_project};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
-use crate::crd::metrics::{kube_error_happened, warning_happened, ModelPhasesMetrics, update_model_counts, ARGO_PULLING};
+use crate::crd::metrics::{warning_happened, ModelPhasesMetrics, update_model_counts, ARGO_PULLING};
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
 use k8s_openapi::{
@@ -110,10 +110,23 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
     // TODO this function definitely need to be refactored
     let mut model_phases_metrics = ModelPhasesMetrics::new(None);
 
-    for model in &models {
-        let labels = &model.metadata.labels;
+    for model in models {
+        let labels = match &model.metadata.labels {
+            Some(labels) => labels,
+            None => {
+                warn!("Model labels field is empty");
+                continue;
+            },
+        };
         let mut current_phase: Option<ModelPhase> = None;
         let current_project: Option<String> = get_model_project(&model);
+        let model_name = match &model.metadata.name {
+            Some(model_name) => model_name,
+            None => {
+                warn!("Pod's field .metadata.name is empty");
+                continue;
+            }
+        };
         match &model.status {
             Some(model_status) => { 
                 let is_reapplied_model = match (&model_status.revision, labels.get("applications.gordo.equinor.com/project-revision")) {
@@ -134,11 +147,11 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
                             if let Some(model_phase) = new_model_phase {
                                 let mut new_model_status = model_status.clone();
                                 new_model_status.phase = model_phase.clone();
-                                info!("New phase for the model '{}' will be {:?}", model.metadata.name, model_status);
+                                info!("New phase for the model '{}' will be {:?}", model_name, model_status);
                                 if model_phase == ModelPhase::Failed {
-                                    if let Some(model_name) = model.metadata.labels.get("applications.gordo.equinor.com/model-name") {
+                                    if let Some(model_name) = labels.get("applications.gordo.equinor.com/model-name") {
                                         let terminated_statuses = failed_pods_terminated_statuses(&model, &pods);
-                                        info!("Found {} failed pods in terminated status which is relates to the model '{}'", terminated_statuses.len(), model.metadata.name);
+                                        info!("Found {} failed pods in terminated status which is relates to the model '{}'", terminated_statuses.len(), model_name);
                                         if let Some(terminated_status) = last_container_terminated_status(terminated_statuses) {
                                             new_model_status.code = Some(terminated_status.exit_code);
                                             if let Some(message) = &terminated_status.message {
@@ -163,17 +176,16 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
                                     }
                                 }
                                 if model_phase != model_status.phase {
-                                    match patch_model_status(&model_api, &model.metadata.name, new_model_status).await {
+                                    match patch_model_status(&model_api, &model_name, &new_model_status).await {
                                         Ok(new_model) => {
-                                          info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status);
+                                          info!("Patching Model '{}' from status {:?} to {:?}", model_name, model.status, new_model.status);
                                           current_phase = match new_model.status {
                                             Some(status) => Some(status.phase),
                                             None => None,
                                           }
                                         }
                                         Err(err) => {
-                                          error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
-                                          kube_error_happened("patch_model", err);
+                                          error!( "Failed to patch status of Model '{}' - error: {:?}", model_name, err);
                                         }
                                     }
                                 }
@@ -184,15 +196,14 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
                 } else {
                     match patch_model_with_default_status(&model_api, &model).await {
                         Ok(new_model) => {
-                          info!("Patching Model '{}' from status {:?} to default status {:?}", model.metadata.name, model.status, new_model.status);
+                          info!("Patching Model '{}' from status {:?} to default status {:?}", model_name, model.status, new_model.status);
                           current_phase = match new_model.status {
                             Some(status) => Some(status.phase),
                             None => None,
                           }
                         }
                         Err(err) => {
-                          error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model.metadata.name, err);
-                          kube_error_happened("patch_model", err);
+                          error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model_name, err);
                         }
                     }
                 }

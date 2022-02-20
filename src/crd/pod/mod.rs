@@ -1,11 +1,11 @@
-use log::{error, info};
+use log::{error, info, warn};
 use kube::api::Api;
 
 use k8s_openapi::{
     api::core::v1::Pod,
 };
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
-use crate::crd::metrics::{kube_error_happened, POD_PULLING};
+use crate::crd::metrics::POD_PULLING;
 use crate::crd::argo::*;
 
 pub const PENDING: &str = "Pending";
@@ -32,7 +32,6 @@ async fn update_model_status(model_resource: &Api<Model>, model: &Model, new_sta
         Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", name, model.status, new_model.status),
         Err(err) => {
           error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
-          kube_error_happened("faild_to_patch_model", err);
         }
     }
 }
@@ -59,7 +58,7 @@ pub async fn monitor_pods(model_api: &Api<Model>, models: &Vec<Model>, pods: &Ve
             Some(status) => match status.phase {
                 Some(phase) => {
                     if phase == RUNNING || phase == SUCCEEDED {
-                        pod.metadata.labels.map(|labels| (phase, labels))
+                        pod.metadata.labels.as_ref().map(|labels| (phase, labels))
                     } else {
                         None
                     }
@@ -72,20 +71,29 @@ pub async fn monitor_pods(model_api: &Api<Model>, models: &Vec<Model>, pods: &Ve
 
     //Update models statuses according to phases of pods which is related to each of this model
     for model in actual_models {
+        let model_name = match &model.metadata.name {
+            Some(model_name) => model_name,
+            None => {
+                warn!("Pod's field .metadata.name is empty");
+                continue;
+            }
+        };
         let new_model_status = match &model.status {
             Some(status) => {
                 let pods_labels = &actual_pods_labels;
                 let pods_phases: Vec<_> = pods_labels.into_iter()
                     .filter(|(_, labels)| {
-                        let model_labels = &model.metadata.labels;
-                        POD_MATCH_LABELS.
-                            iter().
-                            all(|&label_name| model_labels.get(label_name) == labels.get(label_name))
+                        match &model.metadata.labels {
+                            Some(model_labels) => POD_MATCH_LABELS.
+                                iter().
+                                all(|&label_name| model_labels.get(label_name) == labels.get(label_name)),
+                            None => false,
+                        }
                     })
                     .map(|(phase, _)| phase)
                     .collect();
                 if pods_phases.len() > 0 {
-                    info!("Found pods in phases {:?} for the model '{}'", pods_phases, model.metadata.name.unwrap_or("".to_string()));
+                    info!("Found pods in phases {:?} for the model '{}'", pods_phases, model_name);
                     let mut new_status = status.clone();
                     let mut new_phase = new_status.phase.clone();
                     if pods_phases.iter().any(|phase| *phase == SUCCEEDED) {
@@ -109,7 +117,7 @@ pub async fn monitor_pods(model_api: &Api<Model>, models: &Vec<Model>, pods: &Ve
             update_model_status(
                 model_api,
                 &model,
-                new_status,
+                &new_status,
             ).await;
         }
     }

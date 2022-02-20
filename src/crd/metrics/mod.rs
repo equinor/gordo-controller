@@ -73,26 +73,6 @@ pub fn custom_metrics(registry: &Registry) {
   registry.register(Box::new(RECONCILE_ERROR.clone())).unwrap();
 }
 
-pub fn kube_error_name<'a>(err: Error) -> &'a str {
-  match err {
-    Error::Api(_) => "api",
-    Error::ReqwestError(_) => "request_error",
-    Error::HttpError(_) => "http_error",
-    Error::SerdeError(_) => "serde_error",
-    Error::RequestBuild => "request_build",
-    Error::RequestSend => "request_send",
-    Error::RequestParse => "request_parse",
-    Error::InvalidMethod(_) => "request_method",
-    Error::RequestValidation(_) => "request_validation",
-    Error::KubeConfig(_) => "kube_config",
-    Error::SslError(_) => "ssl_error",
-  }
-}
-
-pub fn kube_error_happened(action: &str, err: Error) {
-  KUBE_ERRORS.with_label_values(&[action, kube_error_name(err)]).inc_by(1);
-}
-
 pub fn warning_happened(name: &str) {
   WARNINGS.with_label_values(&[name]).inc_by(1);
 }

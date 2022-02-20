@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use schemars::JsonSchema;
 
 use crate::{create_deploy_job, Config};
-use crate::crd::metrics::{kube_error_happened, KUBE_ERRORS};
+use crate::crd::metrics::KUBE_ERRORS;
 use crate::utils::get_revision;
 
 pub type GenerationNumber = Option<u32>;
@@ -121,7 +121,6 @@ pub async fn start_gordo_deploy_job(
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
         Err(e) => {
           error!("Failed to submit job with error: {:?}", e);
-          kube_error_happened("submit_job", e);
         }
     }
 
@@ -141,7 +140,6 @@ pub async fn start_gordo_deploy_job(
         Ok(o) => info!("Patched status: {:?}", o.status),
         Err(e) => {
           error!("Failed to patch status: {:?}", e);
-          kube_error_happened("patch_gordo", e);
         }
     };
 }
@@ -190,7 +188,6 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
                                             "Failed to delete old gordo job: '{}' with error: {:?}",
                                             name, err
                                         );
-                                        kube_error_happened("delete_gordo", err);
                                     }
                                 }
                             } else {
@@ -204,7 +201,6 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
         }
         Err(e) => {
           error!("Failed to list jobs: {:?}", e);
-          kube_error_happened("list_gordo", e);
         }
     }
 }

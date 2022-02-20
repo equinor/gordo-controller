@@ -6,7 +6,7 @@ use log::{error, info, warn};
 use serde_json::json;
 
 use crate::crd::gordo::gordo::{Gordo, GordoStatus};
-use crate::crd::metrics::{kube_error_happened, MODEL_PULLING};
+use crate::crd::metrics::MODEL_PULLING;
 use crate::errors::Error;
 
 pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, Error>{
@@ -45,11 +45,6 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
                 Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", name, model.status, new_model.status),
                 Err(err) => {
                     error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
-                    match err {
-                        Error::KubeError(kube_error) =>
-                            kube_error_happened("patch_gordo", kube_error),
-                        _ => { },
-                    }
                 }
             }
         }
@@ -87,7 +82,6 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
                 error!(
                     "Failed to patch status of Gordo '{}' - error: {:?}", name, err
                 );
-                kube_error_happened("patch_gordo", err);
             }
         }
     }
