@@ -6,7 +6,7 @@ use gordo_controller::{controller_init, load_kube_config, views, Controller, Gor
 use gordo_controller::{crd::gordo::Gordo, crd::model::Model};
 
 #[test]
-fn test_view_health() {
+async fn test_view_health() {
     block_on(async {
         let req = test::TestRequest::default().to_http_request();
         let resp = views::health(req).await;
@@ -15,18 +15,18 @@ fn test_view_health() {
 }
 
 #[test]
-fn test_view_gordos() {
+async fn test_view_gordos() {
     block_on(async {
         let data = app_state().await;
 
         let req = test::TestRequest::default().to_http_request();
-        let resp: Json<Vec<Gordo>> = views::gordos(data, req).await;
+        let resp: Json<Vec<Gordo>> = views::gordos(data, req).await.expect("Unable to get gordos");
         assert_eq!(resp.0.len(), 0);
     })
 }
 
 #[test]
-fn test_view_models() {
+async fn test_view_models() {
     block_on(async {
         let data = app_state().await;
 

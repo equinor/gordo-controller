@@ -1,23 +1,21 @@
 use kube::api::{DeleteParams, ListParams};
-use kube::{api::Api, client::APIClient, config};
+use kube::{api::Api, client::Client};
 use serde_json::Value;
 use serde_yaml;
 
 use gordo_controller::crd::gordo::Gordo;
 
 // Get the `APIClient` using current kube config
-pub async fn client() -> APIClient {
-    let config = config::load_kube_config()
-        .await
-        .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"));
-    APIClient::new(config)
+pub async fn client() -> Client {
+    Client::try_default().await.expect("Unable to create default Client")
 }
 
 // Remove _all_ gordos.
 pub async fn remove_gordos(gordos: &Api<Gordo>) {
     for gordo in gordos.list(&ListParams::default()).await.unwrap().items.iter() {
+        let name = gordo.metadata.name.clone().expect("gordo.metadata.name is empty");
         gordos
-            .delete(&gordo.metadata.name, &DeleteParams::default())
+            .delete(&name, &DeleteParams::default())
             .await
             .unwrap();
     }
