@@ -1,5 +1,5 @@
 use crate::crd::gordo::Gordo;
-use kube::api::{Api, Object, PatchParams, Patch};
+use kube::api::{Api, PatchParams, Patch};
 use kube::CustomResource;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

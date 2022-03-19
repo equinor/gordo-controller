@@ -6,7 +6,6 @@ use k8s_openapi::{
 };
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
 use crate::crd::metrics::POD_PULLING;
-use crate::crd::argo::*;
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";

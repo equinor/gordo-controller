@@ -1,4 +1,3 @@
-use kube::api::{Api, Object};
 use kube::CustomResource;
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;

@@ -5,7 +5,7 @@ use kube::{
 };
 use actix_web_prom::PrometheusMetricsBuilder;
 use prometheus::Registry;
-use log::{info,debug};
+use log::{info,warn,debug};
 use errors::Error;
 
 
@@ -36,7 +36,9 @@ async fn main() -> Result<(), errors::Error> {
 
     let server = HttpServer::new(move || {
         App::new()
-            .data(client.clone())
+            .app_data(web::Data::new(views::AppState{
+                client: client.clone(),
+            }))
             .wrap(prometheus.clone())
             .wrap(middleware::Logger::default()
                     .exclude("/health")
@@ -53,10 +55,10 @@ async fn main() -> Result<(), errors::Error> {
 
     tokio::select! {
         _ = server.run() => {
-            println!("operation timed out");
+            info!("actix exited");
         }
         _ = controller => {
-            println!("operation completed");
+            warn!("controller drained");
         }
     }
 

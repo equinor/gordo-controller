@@ -7,7 +7,7 @@ use serde::Serialize;
 use crate::errors::Error;
 
 pub struct AppState {
-    client: Client,
+    pub client: Client,
 }
 
 #[derive(Serialize)]
