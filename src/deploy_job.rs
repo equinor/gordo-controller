@@ -17,7 +17,7 @@ use log::{warn};
 
 /// Generate a name which is no greater than 63 chars in length
 /// always keeping the `prefix` and as much of `suffix` as possible, favoring its ending.
-fn deploy_job_name(prefix: &str, suffix: &str) -> String {
+pub fn deploy_job_name(prefix: &str, suffix: &str) -> String {
     let suffix = suffix
         .chars()
         .rev()
