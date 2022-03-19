@@ -3,9 +3,11 @@ use gordo_controller::{init_controller, crd, views, GordoEnvironmentConfig, Conf
 use kube::{
     client::Client,
 };
-use actix_web_prom::PrometheusMetrics;
-use prometheus::{Registry};
-use log::{info,debug,warn};
+use actix_web_prom::PrometheusMetricsBuilder;
+use prometheus::Registry;
+use log::{info,debug};
+use errors::Error;
+
 
 #[actix_rt::main]
 async fn main() -> Result<(), errors::Error> {
@@ -22,14 +24,17 @@ async fn main() -> Result<(), errors::Error> {
 
     let bind_address = format!("{}:{}", &gordo_config.server_host, gordo_config.server_port);
 
-    let client = Client::try_default().await?;
-    let controller = init_controller(client, gordo_config).await;
+    let client = Client::try_default().await.map_err(Error::KubeError)?;
+    let controller = init_controller(client.clone(), gordo_config);
 
     let registry = Registry::new();
     crd::metrics::custom_metrics(&registry);
-    let prometheus = PrometheusMetrics::new_with_registry(registry, crd::metrics::METRICS_NAMESPACE, Some("/metrics"), None).unwrap();
+    let prometheus = PrometheusMetricsBuilder::new(crd::metrics::METRICS_NAMESPACE)
+        .endpoint("/metrics")
+        .build()
+        .unwrap();
 
-    let run = HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
             .data(client.clone())
             .wrap(prometheus.clone())
@@ -44,12 +49,16 @@ async fn main() -> Result<(), errors::Error> {
             .service(web::resource("/models/{gordo_name}").to(views::models_by_gordo))
         })
         .bind(&bind_address)
-        .expect(&format!("Could not bind to '{}'", &bind_address))
-        .run();
+        .expect(&format!("Could not bind to '{}'", &bind_address));
 
     tokio::select! {
-        _ = controller => warn!("controller drained"),
-        _ = run => info!("actix exited"),
+        _ = server.run() => {
+            println!("operation timed out");
+        }
+        _ = controller => {
+            println!("operation completed");
+        }
     }
+
     Ok(())
 }

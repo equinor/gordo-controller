@@ -13,7 +13,6 @@ use k8s_openapi::{
 use log::{info, warn, debug};
 use tokio::time::Duration;
 use crate::crd::metrics::RECONCILE_ERROR;
-use futures::future::BoxFuture;
 
 pub mod crd;
 pub mod deploy_job;

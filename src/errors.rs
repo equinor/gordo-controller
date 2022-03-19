@@ -8,6 +8,9 @@ pub enum Error {
     #[error("Kube API Error: {0}")]
     KubeError(#[source] kube::Error),
 
+    #[error("Tokio JoinError: {0}")]
+    TokioJoinError(#[source] tokio::task::JoinError),
+
     #[error("{0} is empty")]
     NotFound(&'static str),
 }

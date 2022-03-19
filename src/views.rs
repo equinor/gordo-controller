@@ -1,11 +1,10 @@
 use crate::crd::model::{filter_models_on_gordo, Model};
 use crate::Gordo;
-use actix_web::{http::StatusCode, error, web, dev, http, HttpRequest, HttpResponse};
+use actix_web::{http::StatusCode, error, web, HttpResponseBuilder, http, HttpRequest, HttpResponse};
 use kube::{Client, Api};
 use kube::api::ListParams;
 use serde::Serialize;
 use crate::errors::Error;
-use futures::StreamExt;
 
 pub struct AppState {
     client: Client,
@@ -18,7 +17,7 @@ struct ErrorResponse {
 
 impl error::ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
-        dev::HttpResponseBuilder::new(self.status_code())
+        HttpResponseBuilder::new(self.status_code())
             .json(ErrorResponse {
                 error: self.to_string()
             })
