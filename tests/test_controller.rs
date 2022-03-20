@@ -1,4 +1,7 @@
+use std::collections::BTreeMap;
+
 use kube::api::{DeleteParams, ListParams, PostParams};
+use prometheus::labels;
 use tokio_test::block_on;
 
 mod helpers;
@@ -106,16 +109,11 @@ fn test_filter_models_on_gordo() {
     // No models belong to this Gordo, they match OwnerReference but not the project_revision
     assert_eq!(filter_models_on_gordo(&gordo, &models).count(), 0);
 
-    let metadata = &mut models[0].metadata;
-
     // Change one of the models to have a revision matching the Gordo
-    let new_labels = metadata.labels.as_ref().map(|mut labels| {
-            labels.insert("applications.gordo.equinor.com/project-version".to_owned(),project_revision);
-            labels
-        });
-    metadata.labels = match new_labels {
-        Some(l) => Some(*l),
-        None => None,
-    };
+    let labels = &mut models[0].metadata.labels;
+    if let Some(ref mut new_labels) = labels {
+        new_labels.insert("applications.gordo.equinor.com/project-version".to_owned(), project_revision);
+    }
+
     assert_eq!(filter_models_on_gordo(&gordo, &models).count(), 1);
 }
