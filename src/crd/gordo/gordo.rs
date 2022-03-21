@@ -180,7 +180,7 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
                                                 "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
                                                 job.metadata.resource_version, job.metadata.generation
                                             );
-                                            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+                                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                                         }
                                     }
                                     Err(err) => {

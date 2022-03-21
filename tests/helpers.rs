@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use kube::api::{DeleteParams, ListParams};
 use kube::{api::Api, client::Client};
 use serde_yaml;

@@ -1,7 +1,4 @@
-use std::collections::BTreeMap;
-
 use kube::api::{DeleteParams, ListParams, PostParams};
-use prometheus::labels;
 use tokio_test::block_on;
 
 mod helpers;

@@ -3,7 +3,7 @@ use tokio_test::block_on;
 
 use actix_web::web::Json;
 use actix_web::{http::StatusCode, test, web};
-use gordo_controller::{views, GordoEnvironmentConfig, Config};
+use gordo_controller::views;
 use gordo_controller::{crd::gordo::Gordo, crd::model::Model};
 
 mod helpers;
