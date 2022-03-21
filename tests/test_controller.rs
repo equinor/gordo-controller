@@ -9,40 +9,38 @@ use gordo_controller::{GordoEnvironmentConfig, Config};
 use gordo_controller::deploy_job::{deploy_job_name, create_deploy_job};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
-#[test]
-fn test_create_gordo() {
-    block_on(async {
-        let client = helpers::client().await;
-        let gordos = helpers::load_gordo_resource(client.clone(), "default");
+#[tokio::test]
+async fn test_create_gordo() {
+    let client = helpers::client().await;
+    let gordos = helpers::load_gordo_resource(client.clone(), "default");
 
-        // Delete any gordos
-        helpers::remove_gordos(&gordos).await;
+    // Delete any gordos
+    helpers::remove_gordos(&gordos).await;
 
-        // Ensure there are no Gordos
-        assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
+    // Ensure there are no Gordos
+    assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
 
-        // Apply the `gordo-example.yaml` file
-        let gordo: Gordo = helpers::deserialize_config("example-gordo.yaml");
-        let new_gordo = match gordos
-            .create(&PostParams::default(), &gordo)
-            .await
-        {
-            Ok(new_gordo) => new_gordo,
-            Err(err) => panic!("Failed to create gordo with error: {:?}", err),
-        };
+    // Apply the `gordo-example.yaml` file
+    let gordo: Gordo = helpers::deserialize_config("example-gordo.yaml");
+    let new_gordo = match gordos
+        .create(&PostParams::default(), &gordo)
+        .await
+    {
+        Ok(new_gordo) => new_gordo,
+        Err(err) => panic!("Failed to create gordo with error: {:?}", err),
+    };
 
-        // Ensure there are now one gordos
-        assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 1);
+    // Ensure there are now one gordos
+    assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 1);
 
-        let name = new_gordo.metadata.name.expect("metadata.name is empty");
-        // Delete the gordo
-        if let Err(err) = gordos.delete(&name, &DeleteParams::default()).await {
-            panic!("Failed to delete gordo with error: {:?}", err);
-        }
+    let name = new_gordo.metadata.name.expect("metadata.name is empty");
+    // Delete the gordo
+    if let Err(err) = gordos.delete(&name, &DeleteParams::default()).await {
+        panic!("Failed to delete gordo with error: {:?}", err);
+    }
 
-        // Back to zero gordos
-        assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
-    })
+    // Back to zero gordos
+    assert_eq!(gordos.list(&ListParams::default()).await.unwrap().items.len(), 0);
 }
 
 #[test]
