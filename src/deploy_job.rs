@@ -131,7 +131,7 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
             return None;
         }
     };
-    let owner_ref_as_string = serde_json::to_string(vec![owner_references.clone()]).unwrap();
+    let owner_ref_as_string = serde_json::to_string(&vec![owner_references.clone()]).unwrap();
     let project_revision = chrono::Utc::now().timestamp_millis().to_string();
     let mut debug_show_workflow = "";
     if gordo.spec.debug_show_workflow.unwrap_or(false) {
