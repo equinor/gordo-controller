@@ -6,7 +6,6 @@ jobs:
   test:
     name: Test ${{ matrix.rust }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    if: false # Temporory disabled job
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -91,6 +90,7 @@ jobs:
           args: --tests -- --test-threads=1
 
       - name: Integration Tests
+        if: false # Temporory disabled job
         env:
           DEPLOY_IMAGE: "gordo-infrastructure/gordo-deploy"
           DOCKER_REGISTRY: "docker.io"
