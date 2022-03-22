@@ -3,6 +3,7 @@ apiVersion: v1
 metadata:
   name: gordo-controller-config-map
 data:
+  DOCKER_REGISTRY: "docker.io"
   DEPLOY_IMAGE: "docker.io/equinor/gordo-deploy:latest"
   RUST_LOG: "info,kube=info"
   DEFAULT_DEPLOY_ENVIRONMENT: ""

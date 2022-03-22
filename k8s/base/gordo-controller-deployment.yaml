@@ -14,8 +14,8 @@ spec:
         app: gordo-controller
     spec:
       containers:
-      - image: docker.io/equinor/gordo-controller:latest
-        imagePullPolicy: Always
+      - image: equinor/gordo-controller:latest
+        imagePullPolicy: IfNotPresent
         name: gordo-controller
         ports:
           - name: http-api

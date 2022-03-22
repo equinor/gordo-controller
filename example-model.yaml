@@ -8,7 +8,7 @@ metadata:
       controller: true
       kind: Gordo
       name: test-project-name
-      uid: 123abc
+      uid: 6571b980-8824-4b4f-b87c-639c40ef91e3
 
 spec:
 

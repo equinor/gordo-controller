@@ -20,3 +20,14 @@ export KUBERNETES_SERVICE_HOST=localhost
 export KUBERNETES_SERVICE_PORT=8080
 ```
 
+Build the docker image:
+```
+eval $(minikube docker-env)
+docker build -f Dockerfile-controller -t equinor/gordo-controller:latest .
+kubectl apply -k k8s/base
+```
+
+Run tests:
+```
+cargo test --tests -- --test-threads=1
+```

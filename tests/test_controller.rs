@@ -1,9 +1,11 @@
+use std::collections::BTreeMap;
+
 use kube::api::{DeleteParams, ListParams, PostParams};
-use tokio_test::block_on;
 
 mod helpers;
 
 use gordo_controller::crd::gordo::Gordo;
+use gordo_controller::crd::gordo::gordo::GordoStatus;
 use gordo_controller::crd::model::{filter_models_on_gordo, Model};
 use gordo_controller::{GordoEnvironmentConfig, Config};
 use gordo_controller::deploy_job::{deploy_job_name, create_deploy_job};
@@ -68,7 +70,8 @@ fn test_deploy_job_injects_project_version() {
     Ensure the resulting deploy jobs set the WORKFLOW_GENERATOR_PROJECT_VERSION environment variable
     inside the manifest of the deploy job.
     */
-    let gordo: Gordo = helpers::deserialize_config("example-gordo.yaml");
+    let mut gordo: Gordo = helpers::deserialize_config("example-gordo.yaml");
+    gordo.metadata.uid = Some("6571b980-8824-4b4f-b87c-639c40ef91e3".to_string());
 
     let config = Config::from_env_config(GordoEnvironmentConfig::default()).unwrap();
 
@@ -88,14 +91,12 @@ fn test_deploy_job_injects_project_version() {
 fn test_filter_models_on_gordo() {
     // Setup Gordo with a project_revision in the status
     let mut gordo: Gordo = helpers::deserialize_config("example-gordo.yaml");
+    gordo.metadata.uid = Some("6571b980-8824-4b4f-b87c-639c40ef91e3".to_string());
 
     let project_revision = "1234".to_owned();
-    let new_status = gordo.status
-        .map(|mut status| {
-            status.project_revision = project_revision.clone();
-            status
-        });
-    gordo.status = new_status ;
+    let mut new_status = gordo.status.unwrap_or(GordoStatus::default()).clone();
+    new_status.project_revision = project_revision.clone();
+    gordo.status = Some(new_status);
 
     // Make some Models
     let model: Model = helpers::deserialize_config("example-model.yaml");
@@ -105,10 +106,9 @@ fn test_filter_models_on_gordo() {
     assert_eq!(filter_models_on_gordo(&gordo, &models).count(), 0);
 
     // Change one of the models to have a revision matching the Gordo
-    let labels = &mut models[0].metadata.labels;
-    if let Some(ref mut new_labels) = labels {
-        new_labels.insert("applications.gordo.equinor.com/project-version".to_owned(), project_revision);
-    }
+    let mut new_labels = models[0].metadata.labels.clone().unwrap_or(BTreeMap::new());
+    new_labels.insert("applications.gordo.equinor.com/project-version".to_owned(), project_revision);
+    models[0].metadata.labels = Some(new_labels);
 
     assert_eq!(filter_models_on_gordo(&gordo, &models).count(), 1);
 }
