@@ -1,5 +1,5 @@
 use actix_web::{middleware, web, App, HttpServer};
-use gordo_controller::{init_controller, crd, views, GordoEnvironmentConfig, Config, errors};
+use gordo_controller::{init_gordo_controller, crd, views, GordoEnvironmentConfig, Config, errors};
 use kube::{
     client::Client,
 };
@@ -25,7 +25,7 @@ async fn main() -> Result<(), errors::Error> {
     let bind_address = format!("{}:{}", &gordo_config.server_host, gordo_config.server_port);
 
     let client = Client::try_default().await.map_err(Error::KubeError)?;
-    let controller = init_controller(client.clone(), gordo_config);
+    let controller = init_gordo_controller(client.clone(), gordo_config);
 
     let registry = Registry::new();
     crd::metrics::custom_metrics(&registry);

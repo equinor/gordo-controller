@@ -85,8 +85,8 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
 
 pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: &'a str, new_status: &ModelStatus) -> kube::Result<Model> {
     let patch_params = PatchParams::default();
-    let patch = serde_json::to_vec(&json!({ "status": new_status })).unwrap();
-    model_resource.patch_status(model_name, &patch_params, &Patch::Merge(patch)).await
+    let patch = json!({ "status": new_status });
+    model_resource.patch_status(model_name, &patch_params, &Patch::Merge(&patch)).await
 }
 
 pub fn get_model_project<'a>(model: &'a Model) -> Option<String> {

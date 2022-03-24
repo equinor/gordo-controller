@@ -119,8 +119,13 @@ impl Default for GordoEnvironmentConfig {
     }
 }
 
+struct Data {
+    client: Client,
+    config: Config,
+}
+
 #[warn(unused_variables)]
-async fn reconcile(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction, Error> {
+async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction, Error> {
     debug!("reconcile gordo {:?}", gordo);
     let namespace = gordo
         .metadata
@@ -170,12 +175,7 @@ fn error_policy(_error: &Error, _ctx: Context<Data>) -> ReconcilerAction {
     }
 }
 
-struct Data {
-    client: Client,
-    config: Config,
-}
-
-pub async fn init_controller(client: Client, config: Config) {
+pub async fn init_gordo_controller(client: Client, config: Config) {
     let gordo: Api<Gordo> = Api::default_namespaced(client.clone());
     let model: Api<Pod> = Api::default_namespaced(client.clone());
     let workflow: Api<Workflow> = Api::default_namespaced(client.clone());
@@ -186,7 +186,7 @@ pub async fn init_controller(client: Client, config: Config) {
         .owns(model, ListParams::default())
         .owns(workflow, ListParams::default())
         .shutdown_on_signal()
-        .run(reconcile, error_policy, Context::new(Data { client, config }))
+        .run(reconcile_gordo, error_policy, Context::new(Data { client, config }))
         .for_each(|res| async move {
             match res {
                 Ok(o) => info!("reconciled {:?}", o),
