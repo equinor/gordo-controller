@@ -8,9 +8,16 @@ pub enum Error {
     #[error("Kube API Error: {0}")]
     KubeError(#[source] kube::Error),
 
-    #[error("Tokio JoinError: {0}")]
-    TokioJoinError(#[source] tokio::task::JoinError),
-
     #[error("{0} is empty")]
     NotFound(&'static str),
+}
+
+impl Error {
+    pub fn error_name(self) -> &'static str {
+        match self {
+            Error::MissingKey(_) => "missing_key",
+            Error::KubeError(_) => "kube_error",
+            Error::NotFound(_) => "not_found",
+        }
+    }
 }

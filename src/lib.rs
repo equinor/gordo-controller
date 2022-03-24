@@ -12,7 +12,7 @@ use k8s_openapi::{
 };
 use log::{info, warn, debug};
 use tokio::time::Duration;
-use crate::crd::metrics::RECONCILE_ERROR;
+use crate::crd::metrics::{RECONCILE_GORDO_COUNT, RECONCILE_GORDO_ERROR};
 
 pub mod crd;
 pub mod deploy_job;
@@ -132,12 +132,14 @@ async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerA
         .namespace
         .as_ref()
         .ok_or(Error::MissingKey(".metadata.namespace"))?;
+    let gordo_name = gordo.metadata.name.as_ref().ok_or(Error::MissingKey(".metadata.name"))?;
+
+    RECONCILE_GORDO_COUNT.with_label_values(&[&gordo_name]).inc();
 
     let client = ctx.get_ref().client.clone();
     let config = ctx.get_ref().config.clone();
 
     let gordo_api: Api<Gordo> = Api::namespaced(client.clone(), namespace);
-    let gordo_name = gordo.metadata.name.as_ref().ok_or(Error::MissingKey(".metadata.name"))?;
     info!("gordo: {:?}, namespace: {:?}", gordo_name, namespace);
     let model_labels = format!("applications.gordo.equinor.com/project-name={}", gordo_name);
     let lp = ListParams::default().labels(&model_labels);
@@ -192,7 +194,7 @@ pub async fn init_gordo_controller(client: Client, config: Config) {
                 Ok(o) => info!("reconciled {:?}", o),
                 Err(e) => {
                     warn!("reconcile failed: {}", e);
-                    RECONCILE_ERROR.with_label_values(&[]).inc();
+                    RECONCILE_GORDO_ERROR.with_label_values(&[]).inc();
                 },
             }
         }).await;

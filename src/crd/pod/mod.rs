@@ -5,7 +5,6 @@ use k8s_openapi::{
     api::core::v1::Pod,
 };
 use crate::crd::model::{Model, ModelStatus, ModelPhase, patch_model_status};
-use crate::crd::metrics::POD_PULLING;
 
 pub const PENDING: &str = "Pending";
 pub const RUNNING: &str = "Running";
@@ -120,5 +119,4 @@ pub async fn monitor_pods(model_api: &Api<Model>, models: &Vec<Model>, pods: &Ve
             ).await;
         }
     }
-    POD_PULLING.with_label_values(&[]).inc();
 }

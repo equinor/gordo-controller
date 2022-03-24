@@ -2,9 +2,9 @@ pub mod argo;
 pub use argo::*;
 
 use log::{error, info, warn};
-use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status, get_model_project};
+use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
-use crate::crd::metrics::{warning_happened, ModelPhasesMetrics, update_model_counts, ARGO_PULLING};
+use crate::crd::metrics::warning_happened;
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
 use k8s_openapi::{
@@ -123,8 +123,6 @@ fn last_container_terminated_status(terminated_statuses: Vec<&ContainerStateTerm
 
 pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, models: &Vec<Model>, pods: &Vec<Pod>) -> () {
     // TODO this function definitely need to be refactored
-    let mut model_phases_metrics = ModelPhasesMetrics::new(None);
-
     for model in models {
         let labels = match &model.metadata.labels {
             Some(labels) => labels,
@@ -133,8 +131,6 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
                 continue;
             },
         };
-        let mut current_phase: Option<ModelPhase> = None;
-        let current_project: Option<String> = get_model_project(&model);
         let model_name = match &model.metadata.name {
             Some(model_name) => model_name,
             None => {
@@ -148,7 +144,6 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
                     (Some(status_revision), Some(metadata_revision)) => status_revision != metadata_revision,
                     _ => false,
                 };
-                current_phase = Some(model_status.phase.clone());
                 if !is_reapplied_model { 
                     match &model_status.phase {
                         ModelPhase::InProgress | ModelPhase::Unknown => {
@@ -194,10 +189,6 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
                                     match patch_model_status(&model_api, &model_name, &new_model_status).await {
                                         Ok(new_model) => {
                                           info!("Patching Model '{}' from status {:?} to {:?}", model_name, model.status, new_model.status);
-                                          current_phase = match new_model.status {
-                                            Some(status) => Some(status.phase),
-                                            None => None,
-                                          }
                                         }
                                         Err(err) => {
                                           error!( "Failed to patch status of Model '{}' - error: {:?}", model_name, err);
@@ -212,10 +203,6 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
                     match patch_model_with_default_status(&model_api, &model).await {
                         Ok(new_model) => {
                           info!("Patching Model '{}' from status {:?} to default status {:?}", model_name, model.status, new_model.status);
-                          current_phase = match new_model.status {
-                            Some(status) => Some(status.phase),
-                            None => None,
-                          }
                         }
                         Err(err) => {
                           error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model_name, err);
@@ -225,13 +212,5 @@ pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, model
             }
             _ => (),
         };
-        match (current_project, current_phase) {
-          (Some(project), Some(phase)) => {
-            model_phases_metrics.inc_model_counts(project, phase);
-          },
-          _ => (),
-        };
     }
-    update_model_counts(&model_phases_metrics);
-    ARGO_PULLING.with_label_values(&[]).inc();
 }

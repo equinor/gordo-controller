@@ -6,7 +6,6 @@ use log::{error, info, warn};
 use serde_json::json;
 
 use crate::crd::gordo::gordo::{Gordo, GordoStatus};
-use crate::crd::metrics::MODEL_PULLING;
 use crate::errors::Error;
 
 pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, Error>{
@@ -85,5 +84,4 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
             }
         }
     }
-    MODEL_PULLING.with_label_values(&[]).inc();
 }
