@@ -1,9 +1,9 @@
-use kube::api::{Api, Object};
-use kube::client::APIClient;
+use kube::CustomResource;
 use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
 // Origin here https://github.com/argoproj/argo/blob/master/pkg/apis/workflow/v1alpha1/workflow_types.go#L34
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum ArgoWorkflowPhase {
     #[serde(alias = "pending")]
     Pending,
@@ -17,6 +17,8 @@ pub enum ArgoWorkflowPhase {
     Failed,
     #[serde(alias = "error")]
     Error,
+    #[serde(alias = "omitted")]
+    Omitted,
 }
 impl Default for ArgoWorkflowPhase {
     fn default() -> ArgoWorkflowPhase {
@@ -24,20 +26,14 @@ impl Default for ArgoWorkflowPhase {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(CustomResource, Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
+#[kube(group = "argoproj.io", version = "v1alpha1", kind = "Workflow", namespaced)]
+#[kube(shortname = "wf")]
+#[kube(status = "ArgoWorkflowStatus")]
 pub struct ArgoWorkflowSpec {
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct ArgoWorkflowStatus {
     pub phase: Option<ArgoWorkflowPhase>,
-}
-
-pub type ArgoWorkflow = Object<ArgoWorkflowSpec, ArgoWorkflowStatus>;
-
-pub fn load_argo_workflow_resource(client: &APIClient, namespace: &str) -> Api<ArgoWorkflow> {
-    Api::customResource(client.clone(), "workflows")
-        .version("v1alpha1")
-        .group("argoproj.io")
-        .within(&namespace)
 }

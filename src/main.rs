@@ -1,12 +1,16 @@
 use actix_web::{middleware, web, App, HttpServer};
-use gordo_controller::{controller_init, crd, views, GordoEnvironmentConfig, Config};
-use actix_web_prom::PrometheusMetrics;
-use prometheus::{Registry};
-use kube::config;
-use log::{info,debug};
+use gordo_controller::{init_gordo_controller, crd, views, GordoEnvironmentConfig, Config, errors};
+use kube::{
+    client::Client,
+};
+use actix_web_prom::PrometheusMetricsBuilder;
+use prometheus::Registry;
+use log::{info,warn,debug};
+use errors::Error;
+
 
 #[actix_rt::main]
-async fn main() -> () {
+async fn main() -> Result<(), errors::Error> {
     //TODO do not forget about RUST_LOG env in all deployment scripts
     env_logger::init();
 
@@ -18,21 +22,23 @@ async fn main() -> () {
     let gordo_config = Config::from_env_config(env_config).unwrap();
     info!("Starting with config: {:?}", gordo_config);
 
-    let kube_config = config::load_kube_config()
-        .await
-        .unwrap_or_else(|_| config::incluster_config().expect("Failed to get local kube config and incluster config"));
-
     let bind_address = format!("{}:{}", &gordo_config.server_host, gordo_config.server_port);
 
-    let controller = controller_init(kube_config, gordo_config).await.unwrap();
+    let client = Client::try_default().await.map_err(Error::KubeError)?;
+    let controller = init_gordo_controller(client.clone(), gordo_config);
 
     let registry = Registry::new();
     crd::metrics::custom_metrics(&registry);
-    let prometheus = PrometheusMetrics::new_with_registry(registry, crd::metrics::METRICS_NAMESPACE, Some("/metrics"), None).unwrap();
+    let prometheus = PrometheusMetricsBuilder::new(crd::metrics::METRICS_NAMESPACE)
+        .endpoint("/metrics")
+        .build()
+        .unwrap();
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
-            .data(controller.clone())
+            .app_data(web::Data::new(views::AppState{
+                client: client.clone(),
+            }))
             .wrap(prometheus.clone())
             .wrap(middleware::Logger::default()
                     .exclude("/health")
@@ -43,10 +49,18 @@ async fn main() -> () {
             .service(web::resource("/gordos/{name}").to(views::get_gordo))
             .service(web::resource("/models").to(views::models))
             .service(web::resource("/models/{gordo_name}").to(views::models_by_gordo))
-    })
-    .bind(&bind_address)
-    .expect(&format!("Could not bind to '{}'", &bind_address))
-    .run()
-    .await
-    .unwrap()
+        })
+        .bind(&bind_address)
+        .expect(&format!("Could not bind to '{}'", &bind_address));
+
+    tokio::select! {
+        _ = server.run() => {
+            info!("actix exited");
+        }
+        _ = controller => {
+            warn!("controller drained");
+        }
+    }
+
+    Ok(())
 }

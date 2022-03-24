@@ -1,22 +1,36 @@
 use futures::future::join_all;
 use kube::{
-    api::{Api, DeleteParams, ListParams, Object, PatchParams, PostParams},
-    client::APIClient,
+    api::{Api, DeleteParams, ListParams, PatchParams, PostParams, Patch},
+    client::Client,
+    CustomResource,
+};
+use k8s_openapi::{
+    api::batch::v1::Job,
 };
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use schemars::JsonSchema;
 
-use crate::{DeployJob, Config};
-use crate::crd::metrics::{kube_error_happened};
+use crate::{create_deploy_job, Config};
+use crate::crd::metrics::KUBE_ERRORS;
+use crate::utils::get_revision;
 
 pub type GenerationNumber = Option<u32>;
-pub type Gordo = Object<GordoSpec, GordoStatus>;
 
-/// Represents the 'spec' field of a Gordo resource
-#[derive(Serialize, Deserialize, Clone)]
-pub struct GordoSpec {
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+pub struct GordoConfig {
+    #[serde(alias = "machines", default)]
+    models: Vec<Value>,
+    #[serde(default)]
+    globals: Option<Value>,
+}
+
+#[derive(CustomResource, Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[kube(group = "equinor.com", version = "v1", kind = "Gordo", status="GordoStatus", namespaced)]
+#[kube(shortname = "gd")]
+pub struct ConfigMapGeneratorSpec {
     #[serde(rename = "deploy-version")]
     pub deploy_version: String,
     #[serde(rename = "deploy-environment")]
@@ -30,15 +44,6 @@ pub struct GordoSpec {
     pub config: GordoConfig,
 }
 
-/// The actual structure, so much as we need to parse, of a gordo config.
-#[derive(Serialize, Deserialize, Clone)]
-pub struct GordoConfig {
-    #[serde(alias = "machines", default)]
-    models: Vec<Value>,
-    #[serde(default)]
-    globals: Option<Value>,
-}
-
 impl GordoConfig {
     /// Count of models defined in this config
     pub fn n_models(&self) -> usize {
@@ -46,16 +51,8 @@ impl GordoConfig {
     }
 }
 
-/// Load the `Gordo` custom resource API interface
-pub fn load_gordo_resource(client: &APIClient, namespace: &str) -> Api<Gordo> {
-    Api::customResource(client.clone(), "gordos")
-        .version("v1")
-        .group("equinor.com")
-        .within(&namespace)
-}
-
 /// Represents the possible 'status' of a Gordo resource
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct GordoStatus {
     #[serde(rename = "n-models", default)]
     pub n_models: usize,
@@ -80,7 +77,7 @@ impl From<&Gordo> for GordoStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub enum GordoSubmissionStatus {
     Submitted(GenerationNumber),
 }
@@ -94,91 +91,108 @@ impl Default for GordoSubmissionStatus {
 /// Will patch the status of the `Gordo` to reflect the current revision number
 pub async fn start_gordo_deploy_job(
     gordo: &Gordo,
-    client: &APIClient,
+    client: &Client,
     resource: &Api<Gordo>,
     namespace: &str,
     config: &Config,
 ) -> () {
     // Job manifest for launching this gordo config into a workflow
-    let job = DeployJob::new(&gordo, &config);
+    let revision = get_revision();
+    let gordo_name = gordo.metadata.name.to_owned().unwrap().to_owned();
+    let created_job = create_deploy_job(&gordo, &config);
+    let job = match created_job {
+        Some(job) => job,
+        None => {
+            error!("Job is None");
+            return
+        }
+    };
 
     // Before launching this job, remove previous jobs for this project
     remove_gordo_deploy_jobs(&gordo, &client, &namespace).await;
 
+    let job_name = job.metadata.name.to_owned().unwrap();
     // Send off job, later we can add support to watching the job if needed via `jobs.watch(..)`
-    info!("Launching job - {}!", &job.metadata.name);
+    info!("Launching job - {}!", job_name);
     let postparams = PostParams::default();
-    let jobs = Api::v1Job(client.clone()).within(&namespace);
+    let jobs: Api<Job> = Api::namespaced(client.clone(), &namespace);
 
-    let serialized_job_manifest = serde_json::to_vec(&job).unwrap();
-    match jobs.create(&postparams, serialized_job_manifest).await {
+    match jobs.create(&postparams, &job).await {
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
         Err(e) => {
           error!("Failed to submit job with error: {:?}", e);
-          kube_error_happened("submit_job", e);
         }
     }
 
     let mut status = GordoStatus::from(gordo);
-    status.project_revision = job.revision.to_owned();
+    status.project_revision = revision;
 
     // Update the status of this job
     info!(
         "Setting status of this gordo '{}' to '{:?}'",
-        &gordo.metadata.name, &status
+        &gordo_name, &status
     );
-    let patch =
-        serde_json::to_vec(&json!({ "status": status })).expect("Status was not serializable, should never happen.");
+    let patch = json!({ "status": status });
     match resource
-        .patch_status(&gordo.metadata.name, &PatchParams::default(), patch)
+        .patch_status(&gordo_name, &PatchParams::default(), &Patch::Merge(&patch))
         .await
     {
         Ok(o) => info!("Patched status: {:?}", o.status),
         Err(e) => {
           error!("Failed to patch status: {:?}", e);
-          kube_error_happened("patch_gordo", e);
         }
     };
 }
 
 /// Remove any gordo deploy jobs associated with this `Gordo`
-pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespace: &str) -> () {
-    info!("Removing any gordo-deploy jobs for Gordo: '{}'", &gordo.metadata.name);
+pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace: &str) -> () {
+    let gordo_name = gordo.metadata.name.to_owned().unwrap();
+    info!("Removing any gordo-deploy jobs for Gordo: '{}'", &gordo_name);
 
-    let jobs = Api::v1Job(client.clone()).within(&namespace);
+    let jobs: Api<Job> = Api::namespaced(client.clone(), &namespace);
     match jobs.list(&ListParams::default()).await {
         Ok(job_list) => {
             join_all(
                 job_list
                     .items
                     .into_iter()
-                    .filter(|job| job.metadata.labels.get("gordoProjectName") == Some(&gordo.metadata.name))
+                    .filter(move |job| match &job.metadata.labels {
+                        Some(labels) => match labels.get("gordoProjectName") {
+                            Some(project_name) => project_name == &gordo_name,
+                            None => false,
+                        },
+                        None => false,
+                    })
                     .map(|job| {
                         async move {
-                            let jobs_api = Api::v1Job(client.clone()).within(&namespace);
-                            match jobs_api.delete(&job.metadata.name, &DeleteParams::default()).await {
-                                Ok(_) => {
-                                    info!(
-                                        "Successfully requested to delete job: {}, waiting for it to die.",
-                                        &job.metadata.name
-                                    );
-
-                                    // Keep trying to get the job, it will fail when it no longer exists.
-                                    while let Ok(job) = jobs_api.get(&job.metadata.name).await {
+                            let jobs_api: Api<Job> = Api::namespaced(client.clone(), &namespace);
+                            if let Some(name) = job.metadata.name {
+                                match jobs_api.delete(&name, &DeleteParams::default()).await {
+                                    Ok(_) => {
                                         info!(
-                                            "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
-                                            job.metadata.resourceVersion, job.metadata.generation
+                                            "Successfully requested to delete job: {}, waiting for it to die.",
+                                            name
                                         );
-                                        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+
+                                        // Keep trying to get the job, it will fail when it no longer exists.
+                                        while let Ok(job) = jobs_api.get(&name).await {
+                                            info!(
+                                                "Got job resourceVersion: {:#?}, generation: {:#?} waiting for it to be deleted.",
+                                                job.metadata.resource_version, job.metadata.generation
+                                            );
+                                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                        }
+                                    }
+                                    Err(err) => {
+                                        error!(
+                                            "Failed to delete old gordo job: '{}' with error: {:?}",
+                                            name, err
+                                        );
                                     }
                                 }
-                                Err(err) => {
-                                  error!(
-                                    "Failed to delete old gordo job: '{}' with error: {:?}",
-                                    &job.metadata.name, err
-                                  );
-                                  kube_error_happened("delete_gordo", err);
-                                }
+                            } else {
+                                error!("Job does not have .metadata.name");
+                                KUBE_ERRORS.with_label_values(&["delete_gordo", "empty_name"]).inc_by(1);
                             }
                         }
                     }),
@@ -187,7 +201,6 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &APIClient, namespa
         }
         Err(e) => {
           error!("Failed to list jobs: {:?}", e);
-          kube_error_happened("list_gordo", e);
         }
     }
 }

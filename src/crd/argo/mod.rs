@@ -1,16 +1,16 @@
 pub mod argo;
 pub use argo::*;
 
-use futures::future::join3;
 use log::{error, info, warn};
-use kube::api::Object;
-use k8s_openapi::api::core::v1::{PodSpec, PodStatus};
-use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status, get_model_project};
+use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model_status, patch_model_with_default_status};
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
-use crate::Controller;
-use crate::crd::metrics::{kube_error_happened, warning_happened, ModelPhasesMetrics, update_model_counts, ARGO_PULLING};
+use crate::crd::metrics::warning_happened;
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
 use chrono::MIN_DATE;
+use k8s_openapi::{
+    api::core::v1::Pod,
+};
+use kube::api::Api;
 
 pub const WF_MATCH_LABELS: &'static [&'static str] = &[
     "applications.gordo.equinor.com/project-name", 
@@ -19,7 +19,7 @@ pub const WF_MATCH_LABELS: &'static [&'static str] = &[
 
 pub const WF_NUMBER_LABEL: &str = "applications.gordo.equinor.com/project-workflow";
 
-fn some_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
+fn some_of_workflows_in_phases(workflows: &Vec<&Workflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
     workflows.iter()
         .any(|wf| match &wf.status {
             Some(status) => match &status.phase {
@@ -30,7 +30,7 @@ fn some_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoW
         })
 }
 
-fn all_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
+fn all_of_workflows_in_phases(workflows: &Vec<&Workflow>, phases: Vec<ArgoWorkflowPhase>) -> bool {
     workflows.iter()
         .all(|wf| match &wf.status {
             Some(status) => match &status.phase {
@@ -41,13 +41,23 @@ fn all_of_workflows_in_phases(workflows: &Vec<&ArgoWorkflow>, phases: Vec<ArgoWo
         })
 }
 
-fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [ArgoWorkflow]) -> Vec<&'a ArgoWorkflow> {
+fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [Workflow]) -> Vec<&'a Workflow> {
     //TODO for performance reason we supposed to reimplement this algorithm with BTreeMap 
     workflows
         .iter()
         .filter(|workflow| {
-            let workflow_labels = &workflow.metadata.labels;
-            let model_labels = &model.metadata.labels;
+            let workflow_labels = match &workflow.metadata.labels {
+                Some(workflow_labels) => workflow_labels,
+                None => {
+                    return false;
+                }
+            };
+            let model_labels = match &model.metadata.labels {
+                Some(model_labels) => model_labels,
+                None => {
+                    return false;
+                }
+            };
             let equal_labels = WF_MATCH_LABELS
                 .iter()
                 .all(move |&label_name| workflow_labels.get(label_name) == model_labels.get(label_name));
@@ -63,7 +73,7 @@ fn find_model_workflows<'a>(model: &'a Model, workflows: &'a [ArgoWorkflow]) -> 
         .collect()
 }
 
-fn failed_pods_terminated_statuses<'a>(model: &'a Model, pods: &'a Vec<Object<PodSpec, PodStatus>>) -> Vec<&'a ContainerStateTerminated> {
+fn failed_pods_terminated_statuses<'a>(model: &'a Model, pods: &'a Vec<Pod>) -> Vec<&'a ContainerStateTerminated> {
     pods.iter()
         .filter(|pod| {
             match &pod.status {
@@ -79,7 +89,12 @@ fn failed_pods_terminated_statuses<'a>(model: &'a Model, pods: &'a Vec<Object<Po
             let model_labels = &model.metadata.labels;
             POD_MATCH_LABELS
                 .iter()
-                .all(|&label_name| model_labels.get(label_name) == pod_labels.get(label_name))
+                .all(|&label_name| {
+                    match (model_labels, pod_labels) {
+                        (Some(model_labels), Some(pod_labels)) => model_labels.get(label_name) == pod_labels.get(label_name),
+                        _ => false,
+                    }
+                })
         })
         .flat_map(|pod| pod.status.as_ref())
         .flat_map(|pod_status| pod_status.container_statuses.as_ref())
@@ -106,22 +121,29 @@ fn last_container_terminated_status(terminated_statuses: Vec<&ContainerStateTerm
     }
 }
 
-pub async fn monitor_wf(controller: &Controller) -> () {
+pub async fn monitor_wf(model_api: &Api<Model>, workflows: &Vec<Workflow>, models: &Vec<Model>, pods: &Vec<Pod>) -> () {
     // TODO this function definitely need to be refactored
-    let (workflows, models, pods) = join3(controller.wf_state(), controller.model_state(), controller.pod_state()).await;
-    let mut model_phases_metrics = ModelPhasesMetrics::new(None);
-
     for model in models {
-      let labels = &model.metadata.labels;
-        let mut current_phase: Option<ModelPhase> = None;
-        let current_project: Option<String> = get_model_project(&model);
+        let labels = match &model.metadata.labels {
+            Some(labels) => labels,
+            None => {
+                warn!("Model labels field is empty");
+                continue;
+            },
+        };
+        let model_name = match &model.metadata.name {
+            Some(model_name) => model_name,
+            None => {
+                warn!("Pod's field .metadata.name is empty");
+                continue;
+            }
+        };
         match &model.status {
             Some(model_status) => { 
                 let is_reapplied_model = match (&model_status.revision, labels.get("applications.gordo.equinor.com/project-revision")) {
                     (Some(status_revision), Some(metadata_revision)) => status_revision != metadata_revision,
                     _ => false,
                 };
-                current_phase = Some(model_status.phase.clone());
                 if !is_reapplied_model { 
                     match &model_status.phase {
                         ModelPhase::InProgress | ModelPhase::Unknown => {
@@ -135,11 +157,11 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                             if let Some(model_phase) = new_model_phase {
                                 let mut new_model_status = model_status.clone();
                                 new_model_status.phase = model_phase.clone();
-                                info!("New phase for the model '{}' will be {:?}", model.metadata.name, model_status);
+                                info!("New phase for the model '{}' will be {:?}", model_name, model_status);
                                 if model_phase == ModelPhase::Failed {
-                                    if let Some(model_name) = model.metadata.labels.get("applications.gordo.equinor.com/model-name") {
+                                    if let Some(model_name) = labels.get("applications.gordo.equinor.com/model-name") {
                                         let terminated_statuses = failed_pods_terminated_statuses(&model, &pods);
-                                        info!("Found {} failed pods in terminated status which is relates to the model '{}'", terminated_statuses.len(), model.metadata.name);
+                                        info!("Found {} failed pods in terminated status which is relates to the model '{}'", terminated_statuses.len(), model_name);
                                         if let Some(terminated_status) = last_container_terminated_status(terminated_statuses) {
                                             new_model_status.code = Some(terminated_status.exit_code);
                                             if let Some(message) = &terminated_status.message {
@@ -164,17 +186,12 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                                     }
                                 }
                                 if model_phase != model_status.phase {
-                                    match patch_model_status(&controller.model_resource, &model.metadata.name, new_model_status).await {
+                                    match patch_model_status(&model_api, &model_name, &new_model_status).await {
                                         Ok(new_model) => {
-                                          info!("Patching Model '{}' from status {:?} to {:?}", model.metadata.name, model.status, new_model.status);
-                                          current_phase = match new_model.status {
-                                            Some(status) => Some(status.phase),
-                                            None => None,
-                                          }
+                                          info!("Patching Model '{}' from status {:?} to {:?}", model_name, model.status, new_model.status);
                                         }
                                         Err(err) => {
-                                          error!( "Failed to patch status of Model '{}' - error: {:?}", model.metadata.name, err);
-                                          kube_error_happened("patch_model", err);
+                                          error!( "Failed to patch status of Model '{}' - error: {:?}", model_name, err);
                                         }
                                     }
                                 }
@@ -183,30 +200,17 @@ pub async fn monitor_wf(controller: &Controller) -> () {
                         _ => (),
                     }
                 } else {
-                    match patch_model_with_default_status(&controller.model_resource, &model).await {
+                    match patch_model_with_default_status(&model_api, &model).await {
                         Ok(new_model) => {
-                          info!("Patching Model '{}' from status {:?} to default status {:?}", model.metadata.name, model.status, new_model.status);
-                          current_phase = match new_model.status {
-                            Some(status) => Some(status.phase),
-                            None => None,
-                          }
+                          info!("Patching Model '{}' from status {:?} to default status {:?}", model_name, model.status, new_model.status);
                         }
                         Err(err) => {
-                          error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model.metadata.name, err);
-                          kube_error_happened("patch_model", err);
+                          error!( "Failed to patch status of Model '{}' with default status - error: {:?}", model_name, err);
                         }
                     }
                 }
             }
             _ => (),
         };
-        match (current_project, current_phase) {
-          (Some(project), Some(phase)) => {
-            model_phases_metrics.inc_model_counts(project, phase);
-          },
-          _ => (),
-        };
     }
-    update_model_counts(&model_phases_metrics);
-    ARGO_PULLING.with_label_values(&[]).inc();
 }

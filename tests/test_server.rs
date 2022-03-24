@@ -1,47 +1,41 @@
-use tokio_test::block_on;
+use gordo_controller::views::AppState;
 
 use actix_web::web::Json;
 use actix_web::{http::StatusCode, test, web};
-use gordo_controller::{controller_init, load_kube_config, views, Controller, GordoEnvironmentConfig, Config};
+use gordo_controller::views;
 use gordo_controller::{crd::gordo::Gordo, crd::model::Model};
 
-#[test]
-fn test_view_health() {
-    block_on(async {
-        let req = test::TestRequest::default().to_http_request();
-        let resp = views::health(req).await;
-        assert_eq!(resp.status(), StatusCode::OK);
-    })
+mod helpers;
+
+#[tokio::test]
+async fn test_view_health() {
+    let req = test::TestRequest::default().to_http_request();
+    let resp = views::health(req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
 }
 
-#[test]
-fn test_view_gordos() {
-    block_on(async {
-        let data = app_state().await;
+#[tokio::test]
+async fn test_view_gordos() {
+    let data = app_state().await;
 
-        let req = test::TestRequest::default().to_http_request();
-        let resp: Json<Vec<Gordo>> = views::gordos(data, req).await;
-        assert_eq!(resp.0.len(), 0);
-    })
+    let req = test::TestRequest::default().to_http_request();
+    let resp: Json<Vec<Gordo>> = views::gordos(data, req).await.expect("Unable to get gordos");
+    assert_eq!(resp.0.len(), 0);
 }
 
-#[test]
-fn test_view_models() {
-    block_on(async {
-        let data = app_state().await;
+#[tokio::test]
+async fn test_view_models() {
+    let data = app_state().await;
 
-        let req = test::TestRequest::default().to_http_request();
-        let resp: Json<Vec<Model>> = views::models(data, req).await;
-        assert_eq!(resp.0.len(), 0);
-    })
+    let req = test::TestRequest::default().to_http_request();
+    let resp: Json<Vec<Model>> = views::models(data, req).await.expect("Unable to get models");
+    assert_eq!(resp.0.len(), 0);
 }
 
 // Helper for just this module: loading app state for testing
-async fn app_state() -> web::Data<Controller> {
-    let kube_config = load_kube_config().await;
-    let config = Config::from_env_config(GordoEnvironmentConfig::default()).unwrap();
-    let controller = controller_init(kube_config, config)
-        .await
-        .unwrap();
-    web::Data::new(controller)
+async fn app_state() -> web::Data<AppState> {
+    let client = helpers::client().await;
+    web::Data::new(views::AppState {
+        client: client.clone(),
+    })
 }
