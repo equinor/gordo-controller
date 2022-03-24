@@ -103,7 +103,7 @@ pub async fn start_gordo_deploy_job(
     let job = match created_job {
         Some(job) => job,
         None => {
-            error!("Job is empty");
+            error!("Job is None");
             return
         }
     };
@@ -134,7 +134,7 @@ pub async fn start_gordo_deploy_job(
     );
     let patch = json!({ "status": status });
     match resource
-        .patch_status(&job_name, &PatchParams::default(), &Patch::Merge(patch))
+        .patch_status(&gordo_name, &PatchParams::default(), &Patch::Merge(&patch))
         .await
     {
         Ok(o) => info!("Patched status: {:?}", o.status),
