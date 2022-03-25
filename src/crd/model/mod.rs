@@ -64,7 +64,7 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
             let mut status = GordoStatus::from(gordo);
             status.n_models_built = n_models_built;
 
-            let patch = serde_json::to_vec(&json!({ "status": status })).unwrap();
+            let patch = json!({ "status": status });
             let pp = PatchParams::default();
 
             let name = match gordo.metadata.name.to_owned() {
@@ -75,7 +75,7 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
                 }
             };
             if let Err(err) = gordo_api
-                .patch_status(&name, &pp, &Patch::Merge(patch))
+                .patch_status(&name, &pp, &Patch::Merge(&patch))
                 .await
             {
                 error!(
