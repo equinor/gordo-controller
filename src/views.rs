@@ -5,6 +5,7 @@ use kube::Api;
 use kube::api::ListParams;
 use serde::Serialize;
 use crate::errors::Error;
+use log::debug;
 
 pub struct AppState {
     pub gordo_api: Api<Gordo>,
@@ -63,11 +64,14 @@ pub async fn get_gordo(data: web::Data<AppState>, name: web::Path<String>) -> ac
 
 // List current models
 pub async fn models(data: web::Data<AppState>, _req: HttpRequest) -> actix_web::Result<web::Json<Vec<Model>>, Error> {
+    debug!("Get models");
     let model_api: Api<Model> = data.model_api.clone();
     let lp = ListParams::default();
 
+    debug!("Fetch models");
     let model_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
     let models: Vec<Model> = model_list.into_iter().collect();
+    debug!("Collected models");
     Ok(web::Json(models))
 }
 
