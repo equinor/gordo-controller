@@ -4,6 +4,7 @@ use actix_web::web::Json;
 use actix_web::{http::StatusCode, test, web};
 use gordo_controller::views;
 use gordo_controller::{crd::gordo::Gordo, crd::model::Model};
+use kube::Api;
 
 mod helpers;
 
@@ -36,6 +37,7 @@ async fn test_view_models() {
 async fn app_state() -> web::Data<AppState> {
     let client = helpers::client().await;
     web::Data::new(views::AppState {
-        client: client.clone(),
+        gordo_api: Api::default_namespaced(client.clone()),
+        model_api: Api::default_namespaced(client.clone())
     })
 }

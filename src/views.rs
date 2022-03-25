@@ -1,13 +1,14 @@
 use crate::crd::model::{filter_models_on_gordo, Model};
 use crate::Gordo;
 use actix_web::{http::StatusCode, error, web, HttpResponseBuilder, http, HttpRequest, HttpResponse};
-use kube::{Client, Api};
+use kube::Api;
 use kube::api::ListParams;
 use serde::Serialize;
 use crate::errors::Error;
 
 pub struct AppState {
-    pub client: Client,
+    pub gordo_api: Api<Gordo>,
+    pub model_api: Api<Model>,
 }
 
 #[derive(Serialize)]
@@ -35,7 +36,7 @@ pub async fn health(_req: HttpRequest) -> HttpResponse {
 
 // List current gordos
 pub async fn gordos(data: web::Data<AppState>, _req: HttpRequest) -> actix_web::Result<web::Json<Vec<Gordo>>, Error> {
-    let gordo_api: Api<Gordo> = Api::default_namespaced(data.client.clone());
+    let gordo_api: Api<Gordo> = data.gordo_api.clone();
     let lp = ListParams::default();
 
     let gordo_list= gordo_api.list(&lp).await.map_err(Error::KubeError)?;
@@ -45,7 +46,7 @@ pub async fn gordos(data: web::Data<AppState>, _req: HttpRequest) -> actix_web::
 
 // Get a gordo by name
 pub async fn get_gordo(data: web::Data<AppState>, name: web::Path<String>) -> actix_web::Result<web::Json<Gordo>, Error> {
-    let gordo_api: Api<Gordo> = Api::default_namespaced(data.client.clone());
+    let gordo_api: Api<Gordo> = data.gordo_api.clone();
     let lp = ListParams::default();
 
     let name_str = name.as_str();
@@ -62,7 +63,7 @@ pub async fn get_gordo(data: web::Data<AppState>, name: web::Path<String>) -> ac
 
 // List current models
 pub async fn models(data: web::Data<AppState>, _req: HttpRequest) -> actix_web::Result<web::Json<Vec<Model>>, Error> {
-    let model_api: Api<Model> = Api::default_namespaced(data.client.clone());
+    let model_api: Api<Model> = data.model_api.clone();
     let lp = ListParams::default();
 
     let model_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
@@ -72,8 +73,8 @@ pub async fn models(data: web::Data<AppState>, _req: HttpRequest) -> actix_web::
 
 // List current models belonging to a specific Gordo at the same project revision number
 pub async fn models_by_gordo(data: web::Data<AppState>, gordo_name: web::Path<String>) -> actix_web::Result<web::Json<Vec<Model>>, Error> {
-    let gordo_api: Api<Gordo> = Api::default_namespaced(data.client.clone());
-    let model_api: Api<Model> = Api::default_namespaced(data.client.clone());
+    let gordo_api: Api<Gordo> = data.gordo_api.clone();
+    let model_api: Api<Model> = data.model_api.clone();
     let lp = ListParams::default();
 
     let name_str = gordo_name.as_str();

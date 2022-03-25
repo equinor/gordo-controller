@@ -1,6 +1,7 @@
 use actix_web::{middleware, web, App, HttpServer};
 use gordo_controller::{init_gordo_controller, crd, views, GordoEnvironmentConfig, Config, errors};
 use kube::{
+    Api,
     client::Client,
 };
 use actix_web_prom::PrometheusMetricsBuilder;
@@ -37,7 +38,8 @@ async fn main() -> Result<(), errors::Error> {
     let server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(views::AppState{
-                client: client.clone(),
+                gordo_api: Api::default_namespaced(client.clone()),
+                model_api: Api::default_namespaced(client.clone())
             }))
             .wrap(prometheus.clone())
             .wrap(middleware::Logger::default()
