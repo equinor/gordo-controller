@@ -193,7 +193,7 @@ pub async fn init_gordo_controller(client: Client, config: Config) {
             match res {
                 Ok(o) => info!("reconciled {:?}", o),
                 Err(e) => {
-                    warn!("reconcile failed: {}", e);
+                    warn!("reconcile failed: {:?}", e);
                     RECONCILE_GORDO_ERROR.with_label_values(&[]).inc();
                 },
             }
