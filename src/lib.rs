@@ -12,7 +12,7 @@ use k8s_openapi::{
 };
 use log::{info, warn, debug};
 use tokio::time::Duration;
-use crate::crd::metrics::{RECONCILE_GORDO_COUNT, RECONCILE_GORDO_ERROR};
+use crate::crd::metrics::{RECONCILE_GORDO_COUNT, RECONCILE_GORDO_SUCCEDED, RECONCILE_GORDO_ERROR};
 
 pub mod crd;
 pub mod deploy_job;
@@ -182,7 +182,7 @@ pub async fn init_gordo_controller(client: Client, config: Config) {
     let model: Api<Pod> = Api::default_namespaced(client.clone());
     let workflow: Api<Workflow> = Api::default_namespaced(client.clone());
 
-    log::info!("starting gordo-controller");
+    log::info!("Starting gordo-controller");
 
     Controller::new(gordo, ListParams::default())
         .owns(model, ListParams::default())
@@ -191,9 +191,12 @@ pub async fn init_gordo_controller(client: Client, config: Config) {
         .run(reconcile_gordo, error_policy, Context::new(Data { client, config }))
         .for_each(|res| async move {
             match res {
-                Ok(o) => info!("reconciled {:?}", o),
+                Ok(o) => {
+                    info!("Reconciled {:?}", o);
+                    RECONCILE_GORDO_SUCCEDED.with_label_values(&[]).inc();
+                }
                 Err(e) => {
-                    warn!("reconcile failed: {}", e);
+                    warn!("Reconcile failed: {:?}", e);
                     RECONCILE_GORDO_ERROR.with_label_values(&[]).inc();
                 },
             }
