@@ -15,9 +15,14 @@ lazy_static! {
       &["name"]
     ).unwrap();
     pub static ref RECONCILE_GORDO_COUNT: IntCounterVec = IntCounterVec::new(
-      Opts::new("reconcile_count", "Gordo reconcile count")
+      Opts::new("reconcile_gordo_count", "Gordo reconcile count")
       .namespace(METRICS_NAMESPACE),
       &["gordo_name"]
+    ).unwrap();
+    pub static ref RECONCILE_GORDO_SUCCEDED: IntCounterVec = IntCounterVec::new(
+      Opts::new("reconcile_gordo_succeded", "Reconcile Gordo succeded")
+      .namespace(METRICS_NAMESPACE),
+      &[]
     ).unwrap();
     pub static ref RECONCILE_GORDO_ERROR: IntCounterVec = IntCounterVec::new(
       Opts::new("reconcile_gordo_error", "Reconcile Gordo errors")
@@ -30,6 +35,7 @@ pub fn custom_metrics(registry: &Registry) {
   registry.register(Box::new(KUBE_ERRORS.clone())).unwrap();
   registry.register(Box::new(WARNINGS.clone())).unwrap();
   registry.register(Box::new(RECONCILE_GORDO_COUNT.clone())).unwrap();
+  registry.register(Box::new(RECONCILE_GORDO_SUCCEDED.clone())).unwrap();
   registry.register(Box::new(RECONCILE_GORDO_ERROR.clone())).unwrap();
 }
 
