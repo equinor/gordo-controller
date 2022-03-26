@@ -182,7 +182,7 @@ pub async fn init_gordo_controller(client: Client, config: Config) {
     let model: Api<Pod> = Api::default_namespaced(client.clone());
     let workflow: Api<Workflow> = Api::default_namespaced(client.clone());
 
-    log::info!("starting gordo-controller");
+    log::info!("Starting gordo-controller");
 
     Controller::new(gordo, ListParams::default())
         .owns(model, ListParams::default())
