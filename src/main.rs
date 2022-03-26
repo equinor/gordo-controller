@@ -31,6 +31,7 @@ async fn main() -> Result<(), errors::Error> {
     crd::metrics::custom_metrics(&registry);
     let prometheus = PrometheusMetricsBuilder::new(crd::metrics::METRICS_NAMESPACE)
         .endpoint("/metrics")
+        .registry(registry)
         .build()
         .unwrap();
 
