@@ -124,6 +124,7 @@ struct Data {
     config: Config,
 }
 
+
 #[warn(unused_variables)]
 async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction, Error> {
     debug!("reconcile gordo {:?}", gordo);
@@ -140,7 +141,7 @@ async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerA
     let config = ctx.get_ref().config.clone();
 
     let gordo_api: Api<Gordo> = Api::namespaced(client.clone(), namespace);
-    info!("gordo: {:?}, namespace: {:?}", gordo_name, namespace);
+    info!("Reconcile gordo: {:?}, namespace: {:?}", gordo_name, namespace);
     let model_labels = format!("applications.gordo.equinor.com/project-name={}", gordo_name);
     let lp = ListParams::default().labels(&model_labels);
 
@@ -149,18 +150,21 @@ async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerA
     let model_api: Api<Model> = Api::namespaced(client.clone(), namespace);
     let models_obj_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
     let models: Vec<_> = models_obj_list.into_iter().collect();
-    debug!("models {:?}", models);
+    let names = utils::resource_names(&models);
+    debug!("Reconcile {} {}: {}", models.len(), utils::plural_str(models.len(), "models"), names);
     monitor_models(&model_api, &gordo_api, &models, &vec![gordo.clone()]).await;
 
     let workflow_api: Api<Workflow> = Api::namespaced(client.clone(), namespace);
     let workflows_obj_list = workflow_api.list(&lp).await.map_err(Error::KubeError)?;
     let workflows: Vec<_> = workflows_obj_list.into_iter().collect();
-    debug!("workflows {:?}", workflows);
+    let names = utils::resource_names(&workflows);
+    debug!("Reconcile {} {}: {}", workflows.len(), utils::plural_str(workflows.len(), "workflows"), names);
 
     let pod_api: Api<Pod> = Api::namespaced(client.clone(), namespace);
     let pod_obj_list = pod_api.list(&lp).await.map_err(Error::KubeError)?;
     let pods: Vec<_> = pod_obj_list.into_iter().collect();
-    debug!("pods {:?}", pods);
+    let names = utils::resource_names(&pods);
+    debug!("Reconcile {} {}: {}", pods.len(), utils::plural_str(pods.len(), "pods"), names);
 
     monitor_wf(&model_api, &workflows, &models, &pods).await;
     monitor_pods(&model_api, &models, &pods).await;

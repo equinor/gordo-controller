@@ -19,6 +19,23 @@ pub fn object_to_owner_reference<K: Resource<DynamicType = ()>>(
     })
 }
 
+pub fn resource_names<T: Resource<DynamicType=()>>(resource: &Vec<T>) -> String {
+    resource.iter()
+        .map(|resource| {
+            let name = resource.meta().name.as_ref();
+            format!("\"{}\"", name.unwrap_or(&"".to_string()))
+        })
+        .collect()
+}
+
+pub fn plural_str(length: usize, word: &str) -> &str {
+    if length == 1 {
+        word.trim_end_matches('s')
+    } else {
+        word
+    }
+}
+
 pub fn env_var(name: &str, value: &str) -> EnvVar {
     EnvVar {
         name: name.to_string(),
