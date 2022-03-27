@@ -59,7 +59,7 @@ async fn main() -> Result<(), errors::Error> {
             info!("actix exited");
         }
         _ = controller => {
-            warn!("controller drained");
+            warn!("gordo controller drained");
         }
     }
 

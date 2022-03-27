@@ -11,7 +11,7 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectM
 use kube::api::ObjectMeta;
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
-use log::{warn};
+use log::{warn, info};
 
 // TODO builder
 
@@ -120,6 +120,8 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
         &gordo.metadata.generation.unwrap_or(0)
     );
     let job_name = deploy_job_name("gordo-dpl-", &job_name_suffix);
+
+    info!("Creating job \"{}\" for Gordo \"{}\"", job_name, name);
 
     let owner_references_result = object_to_owner_reference::<Gordo>(
         gordo.metadata.clone()

@@ -7,7 +7,7 @@ use kube::{
 use k8s_openapi::{
     api::batch::v1::Job,
 };
-use log::{error, info};
+use log::{error, info, debug};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -97,6 +97,7 @@ pub async fn start_gordo_deploy_job(
     config: &Config,
 ) -> () {
     // Job manifest for launching this gordo config into a workflow
+    debug!("Start gordo deploy Job");
     let revision = get_revision();
     let gordo_name = gordo.metadata.name.to_owned().unwrap().to_owned();
     let created_job = create_deploy_job(&gordo, &config);
