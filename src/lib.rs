@@ -127,7 +127,6 @@ struct Data {
 
 #[warn(unused_variables)]
 async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction, Error> {
-    debug!("reconcile gordo {:?}", gordo);
     let namespace = gordo
         .metadata
         .namespace
