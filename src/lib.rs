@@ -225,7 +225,7 @@ fn error_policy(_error: &Error, _ctx: Context<Data>) -> Action {
 
 pub async fn init_gordo_controller(client: Client, config: Config) {
     let gordo: Api<Gordo> = Api::default_namespaced(client.clone());
-    let model: Api<Pod> = Api::default_namespaced(client.clone());
+    let model: Api<Model> = Api::default_namespaced(client.clone());
     let workflow: Api<Workflow> = Api::default_namespaced(client.clone());
 
     log::info!("Starting gordo-controller");
