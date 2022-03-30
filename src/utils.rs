@@ -20,20 +20,31 @@ pub fn object_to_owner_reference<K: Resource<DynamicType = ()>>(
 }
 
 pub fn resource_names<T: Resource<DynamicType=()>>(resource: &Vec<T>) -> String {
-    let vec: Vec<_> = resource.iter()
+    // TODO intersperse
+    let words: Vec<String> = resource.iter()
         .map(|resource| {
-            let name = resource.meta().name.as_ref();
-            format!("\"{}\"", name.unwrap_or(&"".to_string()))
+            match &resource.meta().name {
+                Some(name) => format!("\"{}\"", name),
+                None => "".into(),
+            }
         })
         .collect();
-    vec.join(", ")
+    words.join(", ")
 }
 
-pub fn plural_str(length: usize, word: &str) -> &str {
-    if length == 1 {
+pub fn plural_str(length: usize, word: &str, suffix: Option<String>) -> String {
+    let result = if length == 1 {
         word.trim_end_matches('s')
     } else {
         word
+    };
+    match (suffix, length > 0) {
+        (Some(suffix_str), true) => {
+            let mut suffix_owned = suffix_str.to_owned();
+            suffix_owned.push_str(result);
+            suffix_owned
+        }
+        (_, _) => result.to_string(),
     }
 }
 

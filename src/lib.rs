@@ -196,21 +196,21 @@ async fn reconcile_gordo(gordo: Arc<Gordo>, ctx: Context<Data>) -> Result<Action
     let models_obj_list = model_api.list(&lp).await.map_err(Error::KubeError)?;
     let models: Vec<_> = models_obj_list.into_iter().collect();
     let names = utils::resource_names(&models);
-    debug!("Reconcile {} {}: {}", models.len(), utils::plural_str(models.len(), "models"), names);
-    // TODO deal with Arc here in right way
-    monitor_models(&model_api, &gordo_api, &models, &vec![(*gordo).clone()]).await;
+    let current_gordo = (*gordo).clone();
+    debug!("Reconcile {} {}{}", models.len(), utils::plural_str(models.len(), "models", Some(": ".to_string())), names);
+    monitor_models(&model_api, &gordo_api, &models, &vec![current_gordo]).await;
 
     let workflow_api: Api<Workflow> = Api::namespaced(client.clone(), namespace);
     let workflows_obj_list = workflow_api.list(&lp).await.map_err(Error::KubeError)?;
     let workflows: Vec<_> = workflows_obj_list.into_iter().collect();
     let names = utils::resource_names(&workflows);
-    debug!("Reconcile {} {}: {}", workflows.len(), utils::plural_str(workflows.len(), "workflows"), names);
+    debug!("Reconcile {} {}{}", workflows.len(), utils::plural_str(workflows.len(), "workflows", Some(": ".to_string())), names);
 
     let pod_api: Api<Pod> = Api::namespaced(client.clone(), namespace);
     let pod_obj_list = pod_api.list(&lp).await.map_err(Error::KubeError)?;
     let pods: Vec<_> = pod_obj_list.into_iter().collect();
     let names = utils::resource_names(&pods);
-    debug!("Reconcile {} {}: {}", pods.len(), utils::plural_str(pods.len(), "pods"), names);
+    debug!("Reconcile {} {}{}", pods.len(), utils::plural_str(pods.len(), "pods", Some(": ".to_string())), names);
 
     monitor_wf(&model_api, &workflows, &models, &pods).await;
     monitor_pods(&model_api, &models, &pods).await;
