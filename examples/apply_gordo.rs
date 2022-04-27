@@ -11,7 +11,6 @@ use kube::client::APIClient;
 mod helpers;
 
 #[tokio::main]
-#[test]
 async fn main() {
     let gordo_raw = std::fs::read_to_string(format!("{}/example-gordo.yaml", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let gordo: Value = serde_yaml::from_str(&gordo_raw).unwrap();

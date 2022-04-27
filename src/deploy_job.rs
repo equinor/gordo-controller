@@ -6,6 +6,7 @@ use crate::{
 use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec,
                                  ResourceRequirements};
 use k8s_openapi::api::batch::v1::{Job, JobSpec};
+use k8s_openapi::api::core::v1::SecurityContext;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
 use kube::api::ObjectMeta;
@@ -69,6 +70,18 @@ fn deploy_container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) ->
             ]
                 .into_iter(),
         )),
+    });
+    container.security_context = Some(SecurityContext {
+        run_as_non_root: Some(true),
+        allow_privilege_escalation: None,
+        capabilities: None,
+        privileged: None,
+        proc_mount: None,
+        read_only_root_filesystem: None,
+        run_as_group: None,
+        run_as_user: None,
+        se_linux_options: None,
+        windows_options: None,
     });
     container
 }
