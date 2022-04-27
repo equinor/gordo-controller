@@ -71,18 +71,10 @@ fn deploy_container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) ->
                 .into_iter(),
         )),
     });
-    container.security_context = Some(SecurityContext {
-        run_as_non_root: Some(true),
-        allow_privilege_escalation: None,
-        capabilities: None,
-        privileged: None,
-        proc_mount: None,
-        read_only_root_filesystem: None,
-        run_as_group: None,
-        run_as_user: None,
-        se_linux_options: None,
-        windows_options: None,
-    });
+    let mut security_context = SecurityContext::default();
+    security_context.run_as_non_root = Some(true);
+    security_context.read_only_root_filesystem = Some(true);
+    container.security_context = Some(security_context);
     container
 }
 
