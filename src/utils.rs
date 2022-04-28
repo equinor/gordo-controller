@@ -20,12 +20,13 @@ pub fn object_to_owner_reference<K: Resource<DynamicType = ()>>(
 }
 
 pub fn resource_names<T: Resource<DynamicType=()>>(resource: &Vec<T>) -> String {
-    resource.iter()
+    let vec: Vec<_> = resource.iter()
         .map(|resource| {
             let name = resource.meta().name.as_ref();
             format!("\"{}\"", name.unwrap_or(&"".to_string()))
         })
-        .collect()
+        .collect();
+    vec.join(", ")
 }
 
 pub fn plural_str(length: usize, word: &str) -> &str {
