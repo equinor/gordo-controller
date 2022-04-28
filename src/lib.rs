@@ -42,6 +42,10 @@ fn default_server_host() -> String {
     String::from("0.0.0.0")
 }
 
+fn default_deploy_ro_fs() -> bool {
+    false
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct GordoEnvironmentConfig {
     pub deploy_image: String,
@@ -54,6 +58,8 @@ pub struct GordoEnvironmentConfig {
     pub docker_registry: String,
     pub default_deploy_environment: String,
     pub resources_labels: String,
+    #[serde(default="default_deploy_ro_fs")]
+    pub deploy_job_ro_fs: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +71,7 @@ pub struct Config {
     pub docker_registry: String,
     pub default_deploy_environment: Option<HashMap<String, String>>,
     pub resources_labels: Option<BTreeMap<String, String>>,
+    pub deploy_job_ro_fs: bool,
 }
 
 impl Config {
@@ -78,6 +85,7 @@ impl Config {
             server_port: env_config.server_port,
             server_host: env_config.server_host.clone(),
             docker_registry: env_config.docker_registry.clone(),
+            deploy_job_ro_fs: env_config.deploy_job_ro_fs,
             default_deploy_environment,
             resources_labels,
         })
@@ -115,6 +123,7 @@ impl Default for GordoEnvironmentConfig {
             docker_registry: "docker.io".to_owned(),
             default_deploy_environment: "".to_owned(),
             resources_labels: "".to_owned(),
+            deploy_job_ro_fs: false,
         }
     }
 }
