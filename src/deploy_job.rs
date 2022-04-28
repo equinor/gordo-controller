@@ -6,7 +6,7 @@ use crate::{
 use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec,
                                  ResourceRequirements};
 use k8s_openapi::api::batch::v1::{Job, JobSpec};
-use k8s_openapi::api::core::v1::SecurityContext;
+use k8s_openapi::api::core::v1::{SecurityContext, Volume, VolumeMount, EmptyDirVolumeSource};
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
 use kube::api::ObjectMeta;
@@ -73,15 +73,33 @@ fn deploy_container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) ->
     });
     let mut security_context = SecurityContext::default();
     security_context.run_as_non_root = Some(true);
-    security_context.read_only_root_filesystem = Some(true);
+    if config.deploy_job_ro_fs {
+        security_context.read_only_root_filesystem = Some(true);
+        container.volume_mounts = Some(vec![
+            VolumeMount {
+                name: "tmp".to_string(),
+                mount_path: "/tmp".to_string(),
+                ..VolumeMount::default()
+            }
+        ]);
+    }
     container.security_context = Some(security_context);
     container
 }
 
-fn deploy_pod_spec(containers: Vec<Container>) -> PodSpec {
+fn deploy_pod_spec(containers: Vec<Container>, config: &Config) -> PodSpec {
     let mut pod_spec = PodSpec::default();
     pod_spec.containers = containers;
     pod_spec.restart_policy = Some("Never".to_string());
+    if config.deploy_job_ro_fs {
+        pod_spec.volumes = Some(vec![
+            Volume {
+                name: "tmp".to_string(),
+                empty_dir: Some(EmptyDirVolumeSource::default()),
+                ..Volume::default()
+            }
+        ]);
+    }
     pod_spec
 }
 
@@ -183,7 +201,7 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
     });
 
     let container = deploy_container(&gordo, environment, config);
-    let pod_spec = deploy_pod_spec(vec![container]);
+    let pod_spec = deploy_pod_spec(vec![container], config);
     let spec_metadata = deploy_pod_spec_metadata(&job_name, resources_labels);
 
     let mut metadata = ObjectMeta::default();
