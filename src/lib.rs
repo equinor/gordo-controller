@@ -1,4 +1,5 @@
-use std::result::{Result};
+use std::result::Result;
+use std::sync::Arc;
 use serde::Deserialize;
 use serde_json;
 use futures::StreamExt;
@@ -6,7 +7,7 @@ use kube::{
     api::{Api, ListParams},
     client::Client,
 };
-use kube_runtime::controller::{Context, Controller, ReconcilerAction};
+use kube::runtime::controller::{Context, Controller, Action};
 use k8s_openapi::{
     api::core::v1::Pod,
 };
@@ -135,7 +136,7 @@ struct Data {
 
 
 #[warn(unused_variables)]
-async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerAction, Error> {
+async fn reconcile_gordo(gordo: Arc<Gordo>, ctx: Context<Data>) -> Result<Action, Error> {
     let namespace = gordo
         .metadata
         .namespace
@@ -160,7 +161,8 @@ async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerA
     let models: Vec<_> = models_obj_list.into_iter().collect();
     let names = utils::resource_names(&models);
     debug!("Reconcile {} {}: {}", models.len(), utils::plural_str(models.len(), "models"), names);
-    monitor_models(&model_api, &gordo_api, &models, &vec![gordo.clone()]).await;
+    // TODO deal with Arc here in right way
+    monitor_models(&model_api, &gordo_api, &models, &vec![(*gordo).clone()]).await;
 
     let workflow_api: Api<Workflow> = Api::namespaced(client.clone(), namespace);
     let workflows_obj_list = workflow_api.list(&lp).await.map_err(Error::KubeError)?;
@@ -177,16 +179,12 @@ async fn reconcile_gordo(gordo: Gordo, ctx: Context<Data>) -> Result<ReconcilerA
     monitor_wf(&model_api, &workflows, &models, &pods).await;
     monitor_pods(&model_api, &models, &pods).await;
 
-    Ok(ReconcilerAction {
-        requeue_after: Some(Duration::from_secs(300)),
-    })
+    Ok(Action::requeue(Duration::from_secs(300)))
 }
 
 
-fn error_policy(_error: &Error, _ctx: Context<Data>) -> ReconcilerAction {
-    ReconcilerAction {
-        requeue_after: Some(Duration::from_secs(60)),
-    }
+fn error_policy(_error: &Error, _ctx: Context<Data>) -> Action {
+    Action::requeue(Duration::from_secs(30))
 }
 
 pub async fn init_gordo_controller(client: Client, config: Config) {
