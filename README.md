@@ -32,7 +32,7 @@ Run tests:
 cargo test --tests -- --test-threads=1
 ```
 
-Environment variables:
+### Environment variables
 
 | Name                         | Type    | Description                                                                                   |
 | ---------------------------- | ------- | --------------------------------------------------------------------------------------------- |
