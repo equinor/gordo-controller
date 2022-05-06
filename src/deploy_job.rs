@@ -10,7 +10,7 @@ use k8s_openapi::api::core::v1::{SecurityContext, Volume, VolumeMount, EmptyDirV
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
 use kube::api::ObjectMeta;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::iter::FromIterator;
 use log::{warn, info};
 
@@ -100,6 +100,7 @@ fn deploy_pod_spec(containers: Vec<Container>, config: &Config) -> PodSpec {
             }
         ]);
     }
+    pod_spec.service_account = config.argo_service_account.as_ref().map(|v| { v.to_string() });
     pod_spec
 }
 
@@ -181,15 +182,27 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
         env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
     ];
 
+    let mut additional_environment: HashMap<String, String> = HashMap::new();
+
     // As long as we calling env_config.validate() method in the main function
     // there should not be circumstances from which panic should occur here
     let default_deploy_environment = &config.default_deploy_environment;
 
     if let Some(deploy_environment) = default_deploy_environment {
-        for (key, value) in deploy_environment {
-            environment.push(env_var(key, value));
-        }
+        additional_environment.extend(
+            deploy_environment.
+            into_iter().
+            map(|(k, v)| (k.to_string(), v.to_string()))
+        );
     }
+
+    if let Some(argo_service_account) = &config.argo_service_account {
+        additional_environment.insert("ARGO_SERVICE_ACCOUNT".into(), argo_service_account.into());
+    }
+
+    additional_environment.iter().for_each(|(key, value)| {
+        environment.push(env_var(key, value));
+    });
 
     let resources_labels = &config.resources_labels;
 

@@ -61,6 +61,7 @@ pub struct GordoEnvironmentConfig {
     pub resources_labels: String,
     #[serde(default="default_deploy_ro_fs")]
     pub deploy_job_ro_fs: bool,
+    pub argo_service_account: Option<String>
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +74,7 @@ pub struct Config {
     pub default_deploy_environment: Option<HashMap<String, String>>,
     pub resources_labels: Option<BTreeMap<String, String>>,
     pub deploy_job_ro_fs: bool,
+    pub argo_service_account: Option<String>
 }
 
 impl Config {
@@ -87,6 +89,7 @@ impl Config {
             server_host: env_config.server_host.clone(),
             docker_registry: env_config.docker_registry.clone(),
             deploy_job_ro_fs: env_config.deploy_job_ro_fs,
+            argo_service_account: env_config.argo_service_account,
             default_deploy_environment,
             resources_labels,
         })
@@ -125,6 +128,7 @@ impl Default for GordoEnvironmentConfig {
             default_deploy_environment: "".to_owned(),
             resources_labels: "".to_owned(),
             deploy_job_ro_fs: false,
+            argo_service_account: None,
         }
     }
 }
