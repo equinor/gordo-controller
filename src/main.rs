@@ -1,5 +1,6 @@
 use actix_web::{middleware, web, App, HttpServer};
 use gordo_controller::{init_gordo_controller, crd, views, GordoEnvironmentConfig, Config, errors};
+use kube::CustomResourceExt;
 use kube::{
     client::Client,
 };
@@ -7,10 +8,15 @@ use actix_web_prom::PrometheusMetricsBuilder;
 use prometheus::Registry;
 use log::{info,warn,debug};
 use errors::Error;
+use gordo_controller::crd::gordo::Gordo;
+use gordo_controller::crd::model::Model;
 
+fn main() {
+  println!("{}", serde_yaml::to_string(&Model::crd()).unwrap());
+}
 
 #[actix_rt::main]
-async fn main() -> Result<(), errors::Error> {
+async fn main1() -> Result<(), errors::Error> {
     //TODO do not forget about RUST_LOG env in all deployment scripts
     env_logger::init();
 
