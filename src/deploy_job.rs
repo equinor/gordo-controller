@@ -200,6 +200,8 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
         additional_environment.insert("ARGO_SERVICE_ACCOUNT".into(), argo_service_account.into());
     }
 
+    additional_environment.insert("ARGO_VERSION_NUMBER".into(), config.argo_version_number.map_or("".into(), |v| v.to_string()));
+
     additional_environment.iter().for_each(|(key, value)| {
         environment.push(env_var(key, value));
     });

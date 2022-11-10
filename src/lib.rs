@@ -61,7 +61,8 @@ pub struct GordoEnvironmentConfig {
     pub resources_labels: String,
     #[serde(default="default_deploy_ro_fs")]
     pub deploy_job_ro_fs: bool,
-    pub argo_service_account: Option<String>
+    pub argo_service_account: Option<String>,
+    pub argo_version_number: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -74,7 +75,8 @@ pub struct Config {
     pub default_deploy_environment: Option<HashMap<String, String>>,
     pub resources_labels: Option<BTreeMap<String, String>>,
     pub deploy_job_ro_fs: bool,
-    pub argo_service_account: Option<String>
+    pub argo_service_account: Option<String>,
+    pub argo_version_number: Option<u8>,
 }
 
 impl Config {
@@ -82,6 +84,10 @@ impl Config {
     pub fn from_env_config(env_config: GordoEnvironmentConfig) -> Result<Self, String> {
         let default_deploy_environment: Option<HashMap<String, String>> = Config::load_from_json(&env_config.default_deploy_environment)?;
         let resources_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resources_labels)?;
+        let argo_version_number = match env_config.argo_version_number {
+          Some(value) => Some(value.parse::<u8>().map_err(|e| e.to_string())?),
+          None => None,
+        };
         Ok(Config {
             deploy_image: env_config.deploy_image.clone(),
             deploy_repository: env_config.deploy_repository.clone(),
@@ -90,6 +96,7 @@ impl Config {
             docker_registry: env_config.docker_registry.clone(),
             deploy_job_ro_fs: env_config.deploy_job_ro_fs,
             argo_service_account: env_config.argo_service_account,
+            argo_version_number: argo_version_number,
             default_deploy_environment,
             resources_labels,
         })
@@ -129,6 +136,7 @@ impl Default for GordoEnvironmentConfig {
             resources_labels: "".to_owned(),
             deploy_job_ro_fs: false,
             argo_service_account: None,
+            argo_version_number: None,
         }
     }
 }
