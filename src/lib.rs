@@ -14,6 +14,7 @@ use k8s_openapi::{
 use log::{info, warn, debug};
 use tokio::time::Duration;
 use crate::crd::metrics::{RECONCILE_GORDO_COUNT, RECONCILE_GORDO_SUCCEDED, RECONCILE_GORDO_ERROR};
+use std::env::Vars;
 
 pub mod crd;
 pub mod deploy_job;
@@ -81,7 +82,12 @@ pub struct Config {
 
 impl Config {
 
-    pub fn from_env_config(env_config: GordoEnvironmentConfig) -> Result<Self, String> {
+    pub fn from_envs<Iter>(envs: Iter) -> Result<Self, String>
+        where Iter: Iterator<Item=(String, String)>
+    {
+        let env_config: GordoEnvironmentConfig = envy::from_iter::<Iter, _>(envs)
+          .map_err(|err| format!("Failed to load environment config: {:#?}", err) )?;
+        debug!("Environment config: {:?}", &env_config);
         let default_deploy_environment: Option<HashMap<String, String>> = Config::load_from_json(&env_config.default_deploy_environment)?;
         let resources_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resources_labels)?;
         let argo_version_number = match env_config.argo_version_number {

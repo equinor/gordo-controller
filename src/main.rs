@@ -7,6 +7,7 @@ use actix_web_prom::PrometheusMetricsBuilder;
 use prometheus::Registry;
 use log::{info,warn,debug};
 use errors::Error;
+use std::env::vars;
 
 
 #[actix_rt::main]
@@ -14,14 +15,9 @@ async fn main() -> Result<(), errors::Error> {
     //TODO do not forget about RUST_LOG env in all deployment scripts
     env_logger::init();
 
-    let env_config: GordoEnvironmentConfig = match envy::from_env::<GordoEnvironmentConfig>() {
-       Ok(config) => config,
-       Err(error) => panic!("Failed to load environment config: {:#?}", error)
-    };
-    debug!("Environment config: {:?}", &env_config);
-    let gordo_config = Config::from_env_config(env_config).unwrap();
-    info!("Starting with config: {:?}", gordo_config);
 
+    let gordo_config = Config::from_envs(vars()).unwrap();
+    info!("Starting with config: {:?}", gordo_config);
     let bind_address = format!("{}:{}", &gordo_config.server_host, gordo_config.server_port);
 
     let client = Client::try_default().await.map_err(Error::KubeError)?;
