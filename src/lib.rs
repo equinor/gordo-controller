@@ -78,6 +78,7 @@ pub struct Config {
     pub deploy_job_ro_fs: bool,
     pub argo_service_account: Option<String>,
     pub argo_version_number: Option<u8>,
+    pub workflow_generator_envs: Vec<(String, String)>,
 }
 
 impl Config {
@@ -85,8 +86,18 @@ impl Config {
     pub fn from_envs<Iter>(envs: Iter) -> Result<Self, String>
         where Iter: Iterator<Item=(String, String)>
     {
-        let env_config: GordoEnvironmentConfig = envy::from_iter::<Iter, _>(envs)
+        let mut workflow_generator_envs: Vec<(String, String)> = vec![];
+        let mut other_envs: Vec<(String, String)> = vec![];
+        for (key, value) in envs.into_iter() {
+            if key.starts_with("WORKFLOW_GENERATOR_") {
+                workflow_generator_envs.push((key, value))
+            } else {
+                other_envs.push((key, value))
+            }
+        }
+        let env_config: GordoEnvironmentConfig = envy::from_iter::<_, _>(other_envs.into_iter())
           .map_err(|err| format!("Failed to load environment config: {:#?}", err) )?;
+        debug!("WORKFLOW_GENERATOR environments: {:?}", workflow_generator_envs);
         debug!("Environment config: {:?}", &env_config);
         let default_deploy_environment: Option<HashMap<String, String>> = Config::load_from_json(&env_config.default_deploy_environment)?;
         let resources_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resources_labels)?;
@@ -103,6 +114,7 @@ impl Config {
             deploy_job_ro_fs: env_config.deploy_job_ro_fs,
             argo_service_account: env_config.argo_service_account,
             argo_version_number: argo_version_number,
+            workflow_generator_envs: workflow_generator_envs,
             default_deploy_environment,
             resources_labels,
         })
