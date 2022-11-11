@@ -10,9 +10,10 @@ use k8s_openapi::api::core::v1::{SecurityContext, Volume, VolumeMount, EmptyDirV
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
 use kube::api::ObjectMeta;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::iter::FromIterator;
 use log::{warn, info};
+
 
 // TODO builder
 

@@ -14,7 +14,7 @@ use k8s_openapi::{
 use log::{info, warn, debug};
 use tokio::time::Duration;
 use crate::crd::metrics::{RECONCILE_GORDO_COUNT, RECONCILE_GORDO_SUCCEDED, RECONCILE_GORDO_ERROR};
-use std::env::Vars;
+use crate::errors::ConfigError;
 
 pub mod crd;
 pub mod deploy_job;
@@ -83,7 +83,7 @@ pub struct Config {
 
 impl Config {
 
-    pub fn from_envs<Iter>(envs: Iter) -> Result<Self, String>
+    pub fn from_envs<Iter>(envs: Iter) -> Result<Self, ConfigError>
         where Iter: Iterator<Item=(String, String)>
     {
         let mut workflow_generator_envs: Vec<(String, String)> = vec![];
@@ -96,14 +96,20 @@ impl Config {
             }
         }
         let env_config: GordoEnvironmentConfig = envy::from_iter::<_, _>(other_envs.into_iter())
-          .map_err(|err| format!("Failed to load environment config: {:#?}", err) )?;
+            .map_err(|err| ConfigError::Environment(err) )?;
         debug!("WORKFLOW_GENERATOR environments: {:?}", workflow_generator_envs);
         debug!("Environment config: {:?}", &env_config);
-        let default_deploy_environment: Option<HashMap<String, String>> = Config::load_from_json(&env_config.default_deploy_environment)?;
-        let resources_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resources_labels)?;
+        let default_deploy_environment: Option<HashMap<String, String>> = Config::load_from_json(&env_config.default_deploy_environment)
+            .map_err(|err| ConfigError::Field("DEFAULT_DEPLOY_ENVIRONMENT", err))?;
+        let resources_labels: Option<BTreeMap<String, String>> = Config::load_from_json(&env_config.resources_labels)
+            .map_err(|err| ConfigError::Field("RESOURCES_LABELS", err))?;
         let argo_version_number = match env_config.argo_version_number {
-          Some(value) => Some(value.parse::<u8>().map_err(|e| e.to_string())?),
-          None => None,
+            Some(value) => { 
+                let result = value.parse::<u8>()
+                    .map_err(|err| ConfigError::Field("ARGO_VERSION_NUMBER", err.to_string()))?;
+                Some(result)
+            },
+            None => None,
         };
         Ok(Config {
             deploy_image: env_config.deploy_image.clone(),
