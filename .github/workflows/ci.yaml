@@ -74,7 +74,7 @@ jobs:
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
-          bash ci/wait_gordo_controller.sh
+          bash scripts/wait_gordo_controller.sh
 
       - name: Test CRDs
         run: |
@@ -95,4 +95,4 @@ jobs:
           DEPLOY_IMAGE: "gordo-infrastructure/gordo-deploy"
           DOCKER_REGISTRY: "docker.io"
         run: |
-          bash ci/integration_tests.sh
+          bash scripts/integration_tests.sh
