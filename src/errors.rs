@@ -12,6 +12,14 @@ pub enum Error {
     NotFound(&'static str),
 }
 
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    #[error("Failed to load environment config: {0}")]
+    Environment(#[source] envy::Error),
+    #[error("Faild to load '{0}' config field: {1}")]
+    Field(&'static str, String)
+}
+
 impl Error {
     pub fn error_name(self) -> &'static str {
         match self {
