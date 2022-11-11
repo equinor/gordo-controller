@@ -167,53 +167,54 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
     // TODO Handle possible panic here
     let resources_labels = config.get_resources_labels_json().unwrap();
 
-    // Build up the gordo-deploy environment variables
-    let mut environment: Vec<EnvVar> = vec![
-        env_var("GORDO_NAME", &name),
-        env_var("ARGO_SUBMIT", "true"),
-        env_var("WORKFLOW_GENERATOR_PROJECT_NAME", &name),
-        env_var("WORKFLOW_GENERATOR_OWNER_REFERENCES", &owner_ref_as_string),
-        env_var("WORKFLOW_GENERATOR_PROJECT_REVISION", &project_revision),
-        // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
-        env_var("WORKFLOW_GENERATOR_PROJECT_VERSION", &project_revision),
-        env_var("WORKFLOW_GENERATOR_DOCKER_REGISTRY", &config.docker_registry),
-        env_var("WORKFLOW_GENERATOR_GORDO_VERSION", &gordo.spec.deploy_version),
-        env_var("WORKFLOW_GENERATOR_RESOURCE_LABELS", &resources_labels),
-        env_var("DEBUG_SHOW_WORKFLOW", debug_show_workflow),
-    ];
+    let mut initial_environment: BTreeMap<String, String> = BTreeMap::new();
 
-    let mut additional_environment: HashMap<String, String> = HashMap::new();
+    for (key, value) in config.workflow_generator_envs.iter() {
+        initial_environment.insert(key.into(), value.into());
+    }
+
+    // Build up the gordo-deploy environment variables
+    initial_environment.insert("GORDO_NAME".into(), name.into());
+    initial_environment.insert("ARGO_SUBMIT".into(), "true".into());
+    initial_environment.insert("WORKFLOW_GENERATOR_PROJECT_NAME".into(), name.clone());
+    initial_environment.insert("WORKFLOW_GENERATOR_OWNER_REFERENCES".into(), owner_ref_as_string);
+    initial_environment.insert("WORKFLOW_GENERATOR_PROJECT_REVISION".into(), project_revision.clone());
+    // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
+    initial_environment.insert("WORKFLOW_GENERATOR_PROJECT_VERSION".into(), project_revision);
+    initial_environment.insert("WORKFLOW_GENERATOR_DOCKER_REGISTRY".into(), config.docker_registry.clone());
+    initial_environment.insert("WORKFLOW_GENERATOR_GORDO_VERSION".into(), gordo.spec.deploy_version.clone());
+    initial_environment.insert("WORKFLOW_GENERATOR_RESOURCE_LABELS".into(), resources_labels);
+    initial_environment.insert("DEBUG_SHOW_WORKFLOW".into(), debug_show_workflow.into());
 
     // As long as we calling env_config.validate() method in the main function
     // there should not be circumstances from which panic should occur here
     let default_deploy_environment = &config.default_deploy_environment;
 
     if let Some(deploy_environment) = default_deploy_environment {
-        additional_environment.extend(
-            deploy_environment.
-            into_iter().
-            map(|(k, v)| (k.to_string(), v.to_string()))
-        );
+        for (key, value) in deploy_environment.iter() {
+            initial_environment.insert(key.into(), value.into());
+        }
     }
 
     if let Some(argo_service_account) = &config.argo_service_account {
-        additional_environment.insert("ARGO_SERVICE_ACCOUNT".into(), argo_service_account.into());
+        initial_environment.insert("ARGO_SERVICE_ACCOUNT".into(), argo_service_account.into());
     }
 
-    additional_environment.insert("ARGO_VERSION_NUMBER".into(), config.argo_version_number.map_or("".into(), |v| v.to_string()));
-
-    additional_environment.iter().for_each(|(key, value)| {
-        environment.push(env_var(key, value));
-    });
+    initial_environment.insert("ARGO_VERSION_NUMBER".into(), config.argo_version_number.map_or("".into(), |v| v.to_string()));
 
     let resources_labels = &config.resources_labels;
 
     // push in any that were supplied by the Gordo.spec.gordo_environment mapping
     gordo.spec.deploy_environment.as_ref().map(|env| {
         env.iter().for_each(|(key, value)| {
-            environment.push(env_var(key, value));
+            initial_environment.insert(key.into(), value.into());
         })
     });
+
+    let mut environment: Vec<EnvVar> = vec![];
+    initial_environment.iter().for_each(|(key, value)| {
+      environment.push(env_var(key, value));
+  });
 
     let container = deploy_container(&gordo, environment, config);
     let pod_spec = deploy_pod_spec(vec![container], config);
