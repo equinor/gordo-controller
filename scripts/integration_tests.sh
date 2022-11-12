@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 export DEPLOY_IMAGE=docker.io/gordo/gordo-deploy
 export DOCKER_REGISTRY=docker.io
