@@ -48,6 +48,7 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v2
+        if: ${{ steps.prep.outputs.push_image }}
         with:
           push: true
           context: .
