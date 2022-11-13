@@ -30,7 +30,7 @@ jobs:
         run: |
           python3 scripts/github_docker.py -r equinor -i gordo-controller
 
-      - name: Login to auroraprodacr
+      - name: Login to production CR
         uses: docker/login-action@v1
         if: ${{ steps.prep.outputs.login_prod_cr }}
         with:
@@ -38,7 +38,7 @@ jobs:
           username: ${{ secrets.DOCKER_PROD_USERNAME }}
           password: ${{ secrets.DOCKER_PROD_TOKEN }}
 
-      - name: Login to auroradevacr
+      - name: Login to CR
         uses: docker/login-action@v1
         if: ${{ steps.prep.outputs.login_cr }}
         with:
