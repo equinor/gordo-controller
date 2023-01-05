@@ -41,6 +41,7 @@ jobs:
 
   test:
     name: Test ${{ matrix.rust }} on ${{ matrix.os }}
+    need: build-docker
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
