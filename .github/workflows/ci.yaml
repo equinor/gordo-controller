@@ -124,7 +124,6 @@ jobs:
           sudo kustomize build k8s/minikube
 
       - name: Install minikube
-        env:
         run: |
           set -e
 
