@@ -29,13 +29,10 @@ jobs:
           tags: equinor/gordo-controller:latest
           load: true
           cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
       - run:
           ls /tmp/.buildx-cache
-
-      - run:
-          ls /tmp/.buildx-cache-new
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -86,13 +83,10 @@ jobs:
             target
           key: ${{ runner.os }}-${{ runner.rust }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - run:
-          ls /tmp/.buildx-cache-new
-
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
-          path: /tmp/.buildx-cache-new
+          path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
