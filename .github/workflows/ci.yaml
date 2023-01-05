@@ -31,6 +31,12 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
+      - run:
+          ls /tmp/.buildx-cache
+
+      - run:
+          ls /tmp/.buildx-cache-new
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -72,13 +78,16 @@ jobs:
           components: rustfmt
 
       - name: Cargo cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ runner.rust }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - run:
+          ls /tmp/.buildx-cache-new
 
       - name: Cache Docker layers
         uses: actions/cache@v3
