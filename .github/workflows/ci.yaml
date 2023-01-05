@@ -29,10 +29,7 @@ jobs:
           tags: equinor/gordo-controller:latest
           load: true
           cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
-
-      - run:
-          ls /tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -45,6 +42,15 @@ jobs:
           severity: 'CRITICAL,HIGH'
           timeout: '5m'
 
+      - 
+        # Temp fix
+        # https://github.com/docker/build-push-action/issues/252
+        # https://github.com/moby/buildkit/issues/1896
+        name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
   test:
     name: Test ${{ matrix.rust }} on ${{ matrix.os }}
     needs: build-docker
@@ -54,10 +60,12 @@ jobs:
         os: [ubuntu-latest]
         rust: [stable]
     env:
-      KUBERNETES_VERSION: v1.23
+      KUBERNETES_VERSION: v1.23.15
+      MINIKUBE_VERSION: v1.27.1
+      MINIKUBE_SHA256: "159bc79f3914dadb7c9f56b6e9d5b73a1c54acb26dca8f1ea84b99ff5da42620"
       MINIKUBE_HOME: /home/runner
-      CHANGE_MINIKUBE_NONE_USER: "true"
       KUBECONFIG: /home/runner/.kube/config
+      CHANGE_MINIKUBE_NONE_USER: "true"
 
     steps:
       - name: Checkout code
@@ -98,7 +106,7 @@ jobs:
           file: ./Dockerfile-controller
           tags: ${{ steps.prep.outputs.base_image }}
           load: true
-          cache-from: type=local,src=/tmp/.buildx-cache-new
+          cache-from: type=local,src=/tmp/.buildx-cache
 
       - name: Install kubectl
         run: |
@@ -117,8 +125,6 @@ jobs:
 
       - name: Install minikube
         env:
-          MINIKUBE_VERSION: v1.27.1
-          MINIKUBE_SHA256: "159bc79f3914dadb7c9f56b6e9d5b73a1c54acb26dca8f1ea84b99ff5da42620"
         run: |
           set -e
 
