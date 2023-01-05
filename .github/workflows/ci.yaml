@@ -149,6 +149,7 @@ jobs:
           docker save ${{ steps.prep.outputs.base_image }} > image.tar
           eval $(minikube -p minikube docker-env)
           docker load < image.tar
+          rm -f image.tar
           docker tag ${{ steps.prep.outputs.base_image }} equinor/gordo-controller:latest
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
