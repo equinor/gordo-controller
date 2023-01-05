@@ -151,11 +151,6 @@ jobs:
 
       - name: Run gordo-controller on minikube
         run: |
-          docker save equinor/gordo-controller:latest > image.tar
-          eval $(minikube -p minikube docker-env)
-          docker load < image.tar
-          rm -f image.tar
-
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           bash scripts/wait_gordo_controller.sh
 
