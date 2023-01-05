@@ -10,11 +10,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Prepare variables
-        id: prep
-        run: |
-          python3 scripts/github_docker.py -r equinor -i gordo-controller
-
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
@@ -28,7 +23,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-controller
-          tags: ${{ steps.prep.outputs.base_image }}
+          tags: equinor/gordo-controller:latest
           load: true
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
@@ -36,7 +31,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.prep.outputs.base_image }}
+          image-ref: equinor/gordo-controller:latest
           format: 'table'
           exit-code: '10'
           ignore-unfixed: true
@@ -60,11 +55,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Prepare variables
-        id: prep
-        run: |
-          python3 scripts/github_docker.py -r equinor -i gordo-controller
 
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -140,17 +130,16 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-controller
-          tags: ${{ steps.prep.outputs.base_image }}
+          tags: equinor/gordo-controller:latest
           load: true
           cache-from: type=local,src=/tmp/.buildx-cache-new
 
       - name: Run gordo-controller on minikube
         run: |
-          docker save ${{ steps.prep.outputs.base_image }} > image.tar
+          docker save equinor/gordo-controller:latest > image.tar
           eval $(minikube -p minikube docker-env)
           docker load < image.tar
           rm -f image.tar
-          docker tag ${{ steps.prep.outputs.base_image }} equinor/gordo-controller:latest
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           bash scripts/wait_gordo_controller.sh
