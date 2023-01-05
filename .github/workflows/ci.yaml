@@ -3,18 +3,68 @@ name: CI
 on: [push, pull_request]
 
 jobs:
+  build-docker:
+    name: Build Dockerfile-controller
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Prepare variables
+        id: prep
+        run: |
+          python3 scripts/github_docker.py -r equinor -i gordo-controller
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile-controller
+          tags: ${{ steps.prep.outputs.base_image }}
+          load: true
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.prep.outputs.base_image }}
+          format: 'table'
+          exit-code: '10'
+          ignore-unfixed: true
+          no-progress: true
+          severity: 'CRITICAL,HIGH'
+          timeout: '5m'
+
   test:
     name: Test ${{ matrix.rust }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    if: false # Temporory disabled job
     strategy:
       matrix:
         os: [ubuntu-latest]
         rust: [stable]
+    env:
+      KUBERNETES_VERSION: v1.23
+      MINIKUBE_HOME: /home/runner
+      CHANGE_MINIKUBE_NONE_USER: "true"
+      KUBECONFIG: /home/runner/.kube/config
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Prepare variables
+        id: prep
+        run: |
+          python3 scripts/github_docker.py -r equinor -i gordo-controller
 
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -33,6 +83,23 @@ jobs:
             target
           key: ${{ runner.os }}-${{ runner.rust }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache-new
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile-controller
+          tags: ${{ steps.prep.outputs.base_image }}
+          load: true
+          cache-from: type=local,src=/tmp/.buildx-cache-new
+
       - name: Install kubectl
         run: |
           sudo curl -L -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.19.0/bin/linux/amd64/kubectl
@@ -50,8 +117,8 @@ jobs:
 
       - name: Install minikube
         env:
-          MINIKUBE_VERSION: v1.16.0
-          MINIKUBE_SHA256: "af29a48b2d79075f9d57be3a28724eef2cd628bb87283ed58dd72cbe1f8967c4"
+          MINIKUBE_VERSION: v1.27.1
+          MINIKUBE_SHA256: "159bc79f3914dadb7c9f56b6e9d5b73a1c54acb26dca8f1ea84b99ff5da42620"
         run: |
           set -e
 
@@ -62,16 +129,27 @@ jobs:
           sudo chmod +x /usr/bin/minikube
 
       - name: Start minikube
-        env:
-          KUBERNETES_VERSION: v1.18.17
-          MINIKUBE_HOME: /home/runner
-          CHANGE_MINIKUBE_NONE_USER: "true"
-          KUBECONFIG: /home/runner/.kube/config
         run: |
           set -e
 
           sudo -E /usr/bin/minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
+
+      - name: Build image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile-controller
+          tags: ${{ steps.prep.outputs.base_image }}
+          load: true
+          cache-from: type=local,src=/tmp/.buildx-cache-new
+
+      - name: Run gordo-controller on minikube
+        run: |
+          docker save ${{ steps.prep.outputs.base_image }} > image.tar
+          eval $(minikube -p minikube docker-env)
+          docker load < image.tar
+          docker tag ${{ steps.prep.outputs.base_image }} equinor/gordo-controller:latest
 
           kubectl apply -k k8s/minikube -n default || echo "Skipping on Istio error"
           bash scripts/wait_gordo_controller.sh
