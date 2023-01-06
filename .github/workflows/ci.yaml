@@ -137,10 +137,6 @@ jobs:
           echo "${MINIKUBE_SHA256} /usr/bin/minikube" | sha256sum -c --status
           sudo chmod +x /usr/bin/minikube
 
-      - run:
-          ls ~/.kube
-          ls ~/.minikube
-
       - name: Start minikube
         run: |
           set -e
