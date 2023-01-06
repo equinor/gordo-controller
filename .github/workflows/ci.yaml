@@ -132,10 +132,13 @@ jobs:
           set -e
 
           sudo apt-get update
-          sudo apt-get install -y conntrack
+          sudo apt-get install -y conntrack lsb-release
           sudo curl -L -o /usr/bin/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
           echo "${MINIKUBE_SHA256} /usr/bin/minikube" | sha256sum -c --status
           sudo chmod +x /usr/bin/minikube
+
+      - run: |
+          lsb_release -a
 
       - name: Start minikube
         run: |
