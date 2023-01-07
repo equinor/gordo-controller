@@ -73,7 +73,9 @@ fn test_deploy_job_injects_project_version() {
     let mut gordo: Gordo = helpers::deserialize_config("example-gordo.yaml");
     gordo.metadata.uid = Some("6571b980-8824-4b4f-b87c-639c40ef91e3".to_string());
 
-    let envs: Vec<(String, String)> = vec![];
+    let envs: Vec<(String, String)> = vec![
+        ("DEPLOY_IMAGE".to_string(), "ghcr.io/equinor/gordo-base:latest".to_string())
+    ];
     let config = Config::from_envs(envs.into_iter()).unwrap();
 
     let deploy_job = create_deploy_job(&gordo, &config).expect("Unable to create deploy job");
