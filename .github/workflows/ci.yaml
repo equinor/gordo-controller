@@ -64,7 +64,7 @@ jobs:
         os: [ubuntu-latest]
         rust: [stable]
     env:
-      KUBERNETES_VERSION: v1.18.20
+      KUBERNETES_VERSION: v1.23.15
       MINIKUBE_VERSION: v1.27.1
       MINIKUBE_SHA256: "159bc79f3914dadb7c9f56b6e9d5b73a1c54acb26dca8f1ea84b99ff5da42620"
       MINIKUBE_HOME: /home/runner
