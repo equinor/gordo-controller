@@ -169,6 +169,7 @@ jobs:
         env:
           KUBERNETES_SERVICE_HOST: localhost
           KUBERNETES_SERVICE_PORT: 8443
+          RUST_BACKTRACE: 1
         with:
           command: test
           args: --tests -- --test-threads=1
