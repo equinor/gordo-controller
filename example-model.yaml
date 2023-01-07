@@ -15,7 +15,7 @@ spec:
   gordo-version: 0.40.0
 
   config:
-    dataset:
+    dataset: |
       tags:
         - TAG-0
         - TAG-2
@@ -28,13 +28,13 @@ spec:
       train_start_date: '2019-01-01T00:00:00+00:00'
       row_filter: "(`TAG-1` > 30) & (`TAG-1` < 40)"
       type: TimeSeriesDataset
-    metadata:
+    metadata: |
       information: 'Use row filtering and dropping the column inside the pipeline'
-    evaluation:
+    evaluation: |
       seed: 1234
       metrics:
         - r2_score
-    model:
+    model: |
       gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
         base_estimator:
           sklearn.compose.TransformedTargetRegressor:
