@@ -12,7 +12,7 @@ spec:
     WORKFLOW_GENERATOR_COMPONENTS_VERSION: latest
   config:
     machines:
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
@@ -21,9 +21,9 @@ spec:
           train_end_date: '2019-03-01T00:00:00+00:20'
           train_start_date: '2019-01-01T00:00:00+00:00'
           type: TimeSeriesDataset
-        metadata:
+        metadata: |
           information: 'Example with a minmax scaler and feed forward autoencoder'
-        model:
+        model: |
           gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
             base_estimator:
               sklearn.pipeline.Pipeline:
@@ -33,7 +33,7 @@ spec:
                     kind: feedforward_hourglass
         name: trolla-minmax-ff-model
 
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
@@ -41,9 +41,9 @@ spec:
             - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
-        metadata:
+        metadata: |
           information: 'Example with an LSTM autoencoder'
-        model:
+        model: |
           gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
             base_estimator:
               sklearn.pipeline.Pipeline:
@@ -54,16 +54,16 @@ spec:
                       lookback_window: 10
         name: trolla-minmax-lstm-ae
 
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
             - TAG-C
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
-        metadata:
+        metadata: |
           information: 'Example with an LSTM forecast one step autoencoder'
-        model:
+        model: |
           gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
             base_estimator:
               sklearn.pipeline.Pipeline:
@@ -74,7 +74,7 @@ spec:
                       lookback_window: 10
         name: trolla-minmax-lstm-forecast
 
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
@@ -82,9 +82,9 @@ spec:
             - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
-        metadata:
+        metadata: |
           information: 'This shows a basic pipeline with a feed forward autoencoder'
-        model:
+        model: |
           gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
             base_estimator:
               sklearn.pipeline.Pipeline:
@@ -93,7 +93,7 @@ spec:
                     kind: feedforward_hourglass
         name: trolla-ff-model
 
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
@@ -101,16 +101,16 @@ spec:
             - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
-        metadata:
+        metadata: |
           information: 'This shows an example where we dont have a pipeline'
-        model:
+        model: |
           gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
             base_estimator:
               gordo_components.model.models.KerasAutoEncoder:
                   kind: feedforward_hourglass
         name: trolla-no-pipeline-ff-model
 
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
@@ -119,9 +119,9 @@ spec:
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
           row_filter: "(`TRA-35TT8566.PV` > 30) & (`TRA-35TT8566.PV` < 40)"
-        metadata:
+        metadata: |
           information: 'This shows an example with a row filter'
-        model:
+        model: |
           gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
             base_estimator:
               sklearn.pipeline.Pipeline:
@@ -131,18 +131,18 @@ spec:
                     kind: feedforward_model
         name: trolla-rowfilter-model
 
-      - dataset:
+      - dataset: |
           asset: 1101-sfb
           tags:
             - TAG-A
             - TAG-B
           train_start_date: 2019-01-01T00:00:00+01:00
           train_end_date: 2019-02-01T00:00:00+01:00
-        metadata:
+        metadata: |
           information: 'This shows an example where the asset key is needed to find the tags'
         name: sfb-asset-key-needed
 
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
@@ -150,9 +150,9 @@ spec:
             - TAG-C
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
-        metadata:
+        metadata: |
           information: 'Use basic LinearRegression model'
-        model:
+        model: |
           sklearn.pipeline.Pipeline:
             steps:
             - sklearn.decomposition.pca.PCA
@@ -162,7 +162,7 @@ spec:
             enable: False
         name: trolla-supervised-lin-reg
 
-      - dataset:
+      - dataset: |
           tags:
             - TAG-A
             - TAG-B
@@ -171,21 +171,21 @@ spec:
             - TAG-D
           train_end_date: '2019-03-01T00:00:00+00:00'
           train_start_date: '2019-01-01T00:00:00+00:00'
-        metadata:
+        metadata: |
           information: 'Use basic LinearRegression model with multiple target features'
-        model:
+        model: |
           sklearn.pipeline.Pipeline:
             steps:
             - sklearn.decomposition.pca.PCA
             - sklearn.multioutput.MultiOutputRegressor:
                 estimator: sklearn.linear_model.base.LinearRegression
-        runtime:
+        runtime: |
           influx:
             enable: False
         name: trolla-supervised-lin-reg-multi
 
     globals:
-      model:
+      model: |
         gordo_components.model.anomaly.diff.DiffBasedAnomalyDetector:
           base_estimator:
             sklearn.pipeline.Pipeline:
