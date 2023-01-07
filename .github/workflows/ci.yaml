@@ -142,7 +142,7 @@ jobs:
 
       - name: Start minikube
         run: |
-          sudo -E /usr/bin/minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none || journalctl -xeu kubelet
+          sudo -E /usr/bin/minikube start --kubernetes-version=${KUBERNETES_VERSION} --vm-driver=none --container-runtime=docker || journalctl -xeu kubelet
           sudo chown -R $USER $HOME/.minikube $HOME/.kube
 
       - name: Build image
