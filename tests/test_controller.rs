@@ -76,6 +76,7 @@ fn test_deploy_job_injects_project_version() {
     let envs: Vec<(String, String)> = vec![
         ("DEPLOY_IMAGE".to_string(), "ghcr.io/equinor/gordo-base:latest".to_string()),
         ("DOCKER_REGISTRY".to_string(), "ghcr.io".to_string()),
+        ("DEFAULT_DEPLOY_ENVIRONMENT".to_string(), "{}".to_string()),
     ];
     let config = Config::from_envs(envs.into_iter()).unwrap();
 
