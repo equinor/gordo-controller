@@ -74,7 +74,8 @@ fn test_deploy_job_injects_project_version() {
     gordo.metadata.uid = Some("6571b980-8824-4b4f-b87c-639c40ef91e3".to_string());
 
     let envs: Vec<(String, String)> = vec![
-        ("DEPLOY_IMAGE".to_string(), "ghcr.io/equinor/gordo-base:latest".to_string())
+        ("DEPLOY_IMAGE".to_string(), "ghcr.io/equinor/gordo-base:latest".to_string()),
+        ("DOCKER_REGISTRY".to_string(), "ghcr.io"),
     ];
     let config = Config::from_envs(envs.into_iter()).unwrap();
 
