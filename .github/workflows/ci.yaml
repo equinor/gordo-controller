@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  release:
+    types: [published, prereleased, edited]
   push:
     branches:
       - master
