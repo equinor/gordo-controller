@@ -6,7 +6,7 @@ use crate::crd::model::{Model, ModelPhase, ModelPodTerminatedStatus, patch_model
 use crate::crd::pod::{POD_MATCH_LABELS, FAILED};
 use crate::crd::metrics::warning_happened;
 use k8s_openapi::api::core::v1::ContainerStateTerminated;
-use chrono::MIN_DATE;
+use chrono::{DateTime, Utc};
 use k8s_openapi::{
     api::core::v1::Pod,
 };
@@ -106,7 +106,7 @@ fn failed_pods_terminated_statuses<'a>(model: &'a Model, pods: &'a Vec<Pod>) -> 
 
 fn last_container_terminated_status(terminated_statuses: Vec<&ContainerStateTerminated>) -> Option<&ContainerStateTerminated> {
     if terminated_statuses.len() > 0 {
-        let min_date_time = MIN_DATE.clone().and_hms(0, 0, 0);
+        let min_date_time = DateTime::<Utc>::MIN_UTC.clone();
         let last_terminated_state_ind = terminated_statuses.iter()
             .enumerate()
             .max_by_key(|(_, terminated_state)| match &terminated_state.finished_at {
