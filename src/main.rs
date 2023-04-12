@@ -1,11 +1,11 @@
 use actix_web::{middleware, web, App, HttpServer};
-use gordo_controller::{init_gordo_controller, crd, views, GordoEnvironmentConfig, Config, errors};
+use gordo_controller::{init_gordo_controller, crd, views, Config, errors};
 use kube::{
     client::Client,
 };
 use actix_web_prom::PrometheusMetricsBuilder;
 use prometheus::Registry;
-use log::{info,warn,debug};
+use log::{info, warn};
 use errors::Error;
 use std::env::vars;
 
