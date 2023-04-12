@@ -1,4 +1,3 @@
-use failure::_core::time::Duration;
 use gordo_controller::{
     crd::gordo::{load_gordo_resource, Gordo},
     crd::model::{load_model_resource, Model},
@@ -61,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .create(&PostParams::default(), serde_json::to_vec(&gordo).unwrap())
         .await
         .unwrap();
-    std::thread::sleep(Duration::from_secs(2));
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     // Wait for controller to pick up and assign a status to this gordo, which will have the project revision set
     while let Ok(gordo) = gordo_api.get(&gordo.metadata.name).await {
@@ -74,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
                 break;
             }
-            None => std::thread::sleep(Duration::from_secs(2)),
+            None => std::thread::sleep(std::time::Duration::from_secs(2)),
         }
     }
 
