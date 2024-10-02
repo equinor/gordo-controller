@@ -1,21 +1,19 @@
 use futures::future::join_all;
+use k8s_openapi::api::batch::v1::Job;
 use kube::{
-    api::{Api, DeleteParams, ListParams, PatchParams, PostParams, Patch},
+    api::{Api, DeleteParams, ListParams, Patch, PatchParams, PostParams},
     client::Client,
     CustomResource,
 };
-use k8s_openapi::{
-    api::batch::v1::Job,
-};
-use log::{error, info, debug};
+use log::{debug, error, info};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use schemars::JsonSchema;
 
-use crate::{create_deploy_job, Config};
 use crate::crd::metrics::KUBE_ERRORS;
 use crate::utils::get_revision;
+use crate::{create_deploy_job, Config};
 
 pub type GenerationNumber = Option<u32>;
 
@@ -28,7 +26,13 @@ pub struct GordoConfig {
 }
 
 #[derive(CustomResource, Debug, Clone, Deserialize, Serialize, JsonSchema)]
-#[kube(group = "equinor.com", version = "v1", kind = "Gordo", status="GordoStatus", namespaced)]
+#[kube(
+    group = "equinor.com",
+    version = "v1",
+    kind = "Gordo",
+    status = "GordoStatus",
+    namespaced
+)]
 #[kube(shortname = "gd")]
 pub struct ConfigMapGeneratorSpec {
     #[serde(rename = "deploy-version")]
@@ -105,7 +109,7 @@ pub async fn start_gordo_deploy_job(
         Some(job) => job,
         None => {
             error!("Job is None");
-            return
+            return;
         }
     };
 
@@ -121,7 +125,7 @@ pub async fn start_gordo_deploy_job(
     match jobs.create(&postparams, &job).await {
         Ok(job) => info!("Submitted job: {:?}", job.metadata.name),
         Err(e) => {
-          error!("Failed to submit job with error: {:?}", e);
+            error!("Failed to submit job with error: {:?}", e);
         }
     }
 
@@ -129,10 +133,7 @@ pub async fn start_gordo_deploy_job(
     status.project_revision = revision;
 
     // Update the status of this job
-    info!(
-        "Setting status of this gordo '{}' to '{:?}'",
-        &gordo_name, &status
-    );
+    info!("Setting status of this gordo '{}' to '{:?}'", &gordo_name, &status);
     let patch = json!({ "status": status });
     match resource
         .patch_status(&gordo_name, &PatchParams::default(), &Patch::Merge(&patch))
@@ -140,7 +141,7 @@ pub async fn start_gordo_deploy_job(
     {
         Ok(o) => info!("Patched status: {:?}", o.status),
         Err(e) => {
-          error!("Failed to patch status: {:?}", e);
+            error!("Failed to patch status: {:?}", e);
         }
     };
 }
@@ -201,7 +202,7 @@ pub async fn remove_gordo_deploy_jobs(gordo: &Gordo, client: &Client, namespace:
                 .await;
         }
         Err(e) => {
-          error!("Failed to list jobs: {:?}", e);
+            error!("Failed to list jobs: {:?}", e);
         }
     }
 }

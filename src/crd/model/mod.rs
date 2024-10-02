@@ -1,14 +1,17 @@
 pub mod model;
 pub use model::*;
 
-use kube::api::{Api, PatchParams, Patch};
+use kube::api::{Api, Patch, PatchParams};
 use log::{error, info, warn};
 use serde_json::json;
 
 use crate::crd::gordo::gordo::{Gordo, GordoStatus};
 use crate::errors::Error;
 
-pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>, model: &'a Model) -> Result<Model, Error>{
+pub async fn patch_model_with_default_status<'a>(
+    model_resource: &'a Api<Model>,
+    model: &'a Model,
+) -> Result<Model, Error> {
     let mut status = ModelStatus::default();
     status.revision = match model.metadata.labels.to_owned() {
         Some(labels) => match labels.get("applications.gordo.equinor.com/project-revision") {
@@ -18,16 +21,19 @@ pub async fn patch_model_with_default_status<'a>(model_resource: &'a Api<Model>,
         None => None,
     };
     match model.metadata.name.to_owned() {
-        Some(name) => patch_model_status(
-            model_resource,
-            &name,
-            &status
-        ).await.map_err(Error::KubeError),
+        Some(name) => patch_model_status(model_resource, &name, &status)
+            .await
+            .map_err(Error::KubeError),
         None => Err(Error::MissingKey(".metadata.name")),
     }
 }
 
-pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, models: &Vec<Model>, gordos: &Vec<Gordo>) -> () {
+pub async fn monitor_models(
+    model_api: &Api<Model>,
+    gordo_api: &Api<Gordo>,
+    models: &Vec<Model>,
+    gordos: &Vec<Gordo>,
+) -> () {
     for model in models.iter() {
         if let None = model.status {
             //TODO Update state here
@@ -36,14 +42,17 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
                 Some(name) => name,
                 None => {
                     warn!("Model does not have a name");
-                    continue
+                    continue;
                 }
             };
             info!("Unknown status for model {}", name);
             match patch_model_with_default_status(model_api, &model).await {
-                Ok(new_model) => info!("Patching Model '{}' from status {:?} to {:?}", name, model.status, new_model.status),
+                Ok(new_model) => info!(
+                    "Patching Model '{}' from status {:?} to {:?}",
+                    name, model.status, new_model.status
+                ),
                 Err(err) => {
-                    error!( "Failed to patch status of Model '{}' - error: {:?}", name, err);
+                    error!("Failed to patch status of Model '{}' - error: {:?}", name, err);
                 }
             }
         }
@@ -71,16 +80,11 @@ pub async fn monitor_models(model_api: &Api<Model>, gordo_api: &Api<Gordo>, mode
                 Some(name) => name,
                 None => {
                     warn!("Gordo does not have a name");
-                    continue
+                    continue;
                 }
             };
-            if let Err(err) = gordo_api
-                .patch_status(&name, &pp, &Patch::Merge(&patch))
-                .await
-            {
-                error!(
-                    "Failed to patch status of Gordo '{}' - error: {:?}", name, err
-                );
+            if let Err(err) = gordo_api.patch_status(&name, &pp, &Patch::Merge(&patch)).await {
+                error!("Failed to patch status of Gordo '{}' - error: {:?}", name, err);
             }
         }
     }

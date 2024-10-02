@@ -1,19 +1,16 @@
 use crate::{
-    Gordo,
-    Config,
-    utils::{object_to_owner_reference, env_var},
+    utils::{env_var, object_to_owner_reference},
+    Config, Gordo,
 };
-use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec,
-                                 ResourceRequirements};
 use k8s_openapi::api::batch::v1::{Job, JobSpec};
-use k8s_openapi::api::core::v1::{SecurityContext, Volume, VolumeMount, EmptyDirVolumeSource};
+use k8s_openapi::api::core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec, ResourceRequirements};
+use k8s_openapi::api::core::v1::{EmptyDirVolumeSource, SecurityContext, Volume, VolumeMount};
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta as OpenApiObjectMeta;
 use kube::api::ObjectMeta;
+use log::{info, warn};
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
-use log::{warn, info};
-
 
 // TODO builder
 
@@ -62,27 +59,25 @@ fn deploy_container(gordo: &Gordo, environment: Vec<EnvVar>, config: &Config) ->
                 ("memory".to_owned(), Quantity("1000Mi".to_owned())),
                 ("cpu".to_owned(), Quantity("2000m".to_string())),
             ]
-                .into_iter(),
+            .into_iter(),
         )),
         requests: Some(BTreeMap::from_iter(
             vec![
                 ("memory".to_owned(), Quantity("500Mi".to_owned())),
                 ("cpu".to_owned(), Quantity("250m".to_string())),
             ]
-                .into_iter(),
+            .into_iter(),
         )),
     });
     let mut security_context = SecurityContext::default();
     security_context.run_as_non_root = Some(true);
     if config.deploy_job_ro_fs {
         security_context.read_only_root_filesystem = Some(true);
-        container.volume_mounts = Some(vec![
-            VolumeMount {
-                name: "tmp".to_string(),
-                mount_path: "/tmp".to_string(),
-                ..VolumeMount::default()
-            }
-        ]);
+        container.volume_mounts = Some(vec![VolumeMount {
+            name: "tmp".to_string(),
+            mount_path: "/tmp".to_string(),
+            ..VolumeMount::default()
+        }]);
     }
     container.security_context = Some(security_context);
     container
@@ -93,15 +88,13 @@ fn deploy_pod_spec(containers: Vec<Container>, config: &Config) -> PodSpec {
     pod_spec.containers = containers;
     pod_spec.restart_policy = Some("Never".to_string());
     if config.deploy_job_ro_fs {
-        pod_spec.volumes = Some(vec![
-            Volume {
-                name: "tmp".to_string(),
-                empty_dir: Some(EmptyDirVolumeSource::default()),
-                ..Volume::default()
-            }
-        ]);
+        pod_spec.volumes = Some(vec![Volume {
+            name: "tmp".to_string(),
+            empty_dir: Some(EmptyDirVolumeSource::default()),
+            ..Volume::default()
+        }]);
     }
-    pod_spec.service_account = config.argo_service_account.as_ref().map(|v| { v.to_string() });
+    pod_spec.service_account = config.argo_service_account.as_ref().map(|v| v.to_string());
     pod_spec
 }
 
@@ -139,18 +132,12 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
             return None;
         }
     };
-    let job_name_suffix = format!(
-        "{}-{}",
-        name,
-        &gordo.metadata.generation.unwrap_or(0)
-    );
+    let job_name_suffix = format!("{}-{}", name, &gordo.metadata.generation.unwrap_or(0));
     let job_name = deploy_job_name("gordo-dpl-", &job_name_suffix);
 
     info!("Creating job \"{}\" for Gordo \"{}\"", job_name, name);
 
-    let owner_references_result = object_to_owner_reference::<Gordo>(
-        gordo.metadata.clone()
-    );
+    let owner_references_result = object_to_owner_reference::<Gordo>(gordo.metadata.clone());
     let owner_references = match owner_references_result {
         Ok(owner_references) => owner_references,
         Err(_) => {
@@ -182,8 +169,14 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
     initial_environment.insert("WORKFLOW_GENERATOR_PROJECT_REVISION".into(), project_revision.clone());
     // TODO: Backward compat. Until all have moved >=0.47.0 of gordo-components
     initial_environment.insert("WORKFLOW_GENERATOR_PROJECT_VERSION".into(), project_revision);
-    initial_environment.insert("WORKFLOW_GENERATOR_DOCKER_REGISTRY".into(), config.docker_registry.clone());
-    initial_environment.insert("WORKFLOW_GENERATOR_GORDO_VERSION".into(), gordo.spec.deploy_version.clone());
+    initial_environment.insert(
+        "WORKFLOW_GENERATOR_DOCKER_REGISTRY".into(),
+        config.docker_registry.clone(),
+    );
+    initial_environment.insert(
+        "WORKFLOW_GENERATOR_GORDO_VERSION".into(),
+        gordo.spec.deploy_version.clone(),
+    );
     initial_environment.insert("WORKFLOW_GENERATOR_RESOURCE_LABELS".into(), resources_labels);
     initial_environment.insert("DEBUG_SHOW_WORKFLOW".into(), debug_show_workflow.into());
 
@@ -201,7 +194,10 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
         initial_environment.insert("ARGO_SERVICE_ACCOUNT".into(), argo_service_account.into());
     }
 
-    initial_environment.insert("ARGO_VERSION_NUMBER".into(), config.argo_version_number.map_or("".into(), |v| v.to_string()));
+    initial_environment.insert(
+        "ARGO_VERSION_NUMBER".into(),
+        config.argo_version_number.map_or("".into(), |v| v.to_string()),
+    );
 
     let resources_labels = &config.resources_labels;
 
@@ -214,8 +210,8 @@ pub fn create_deploy_job(gordo: &Gordo, config: &Config) -> Option<Job> {
 
     let mut environment: Vec<EnvVar> = vec![];
     initial_environment.iter().for_each(|(key, value)| {
-      environment.push(env_var(key, value));
-  });
+        environment.push(env_var(key, value));
+    });
 
     let container = deploy_container(&gordo, environment, config);
     let pod_spec = deploy_pod_spec(vec![container], config);
