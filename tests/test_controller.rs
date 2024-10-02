@@ -4,11 +4,11 @@ use kube::api::{DeleteParams, ListParams, PostParams};
 
 mod helpers;
 
-use gordo_controller::crd::gordo::Gordo;
 use gordo_controller::crd::gordo::gordo::GordoStatus;
+use gordo_controller::crd::gordo::Gordo;
 use gordo_controller::crd::model::{filter_models_on_gordo, Model};
-use gordo_controller::{GordoEnvironmentConfig, Config};
-use gordo_controller::deploy_job::{deploy_job_name, create_deploy_job};
+use gordo_controller::deploy_job::{create_deploy_job, deploy_job_name};
+use gordo_controller::{Config, GordoEnvironmentConfig};
 
 // We can create a gordo using the `example-gordo.yaml` file in the repo.
 #[tokio::test]
@@ -24,10 +24,7 @@ async fn test_create_gordo() {
 
     // Apply the `gordo-example.yaml` file
     let gordo: Gordo = helpers::deserialize_config("example-gordo.yaml");
-    let new_gordo = match gordos
-        .create(&PostParams::default(), &gordo)
-        .await
-    {
+    let new_gordo = match gordos.create(&PostParams::default(), &gordo).await {
         Ok(new_gordo) => new_gordo,
         Err(err) => panic!("Failed to create gordo with error: {:?}", err),
     };
@@ -74,10 +71,13 @@ fn test_deploy_job_injects_project_version() {
     gordo.metadata.uid = Some("6571b980-8824-4b4f-b87c-639c40ef91e3".to_string());
 
     let envs: Vec<(String, String)> = vec![
-        ("DEPLOY_IMAGE".to_string(), "ghcr.io/equinor/gordo-base:latest".to_string()),
+        (
+            "DEPLOY_IMAGE".to_string(),
+            "ghcr.io/equinor/gordo-base:latest".to_string(),
+        ),
         ("DOCKER_REGISTRY".to_string(), "ghcr.io".to_string()),
         ("DEFAULT_DEPLOY_ENVIRONMENT".to_string(), "{}".to_string()),
-        ("RESOURCES_LABELS".to_string(), "{}".to_string())
+        ("RESOURCES_LABELS".to_string(), "{}".to_string()),
     ];
     let config = Config::from_envs(envs.into_iter()).unwrap();
 
@@ -113,7 +113,10 @@ fn test_filter_models_on_gordo() {
 
     // Change one of the models to have a revision matching the Gordo
     let mut new_labels = models[0].metadata.labels.clone().unwrap_or(BTreeMap::new());
-    new_labels.insert("applications.gordo.equinor.com/project-version".to_owned(), project_revision);
+    new_labels.insert(
+        "applications.gordo.equinor.com/project-version".to_owned(),
+        project_revision,
+    );
     models[0].metadata.labels = Some(new_labels);
 
     assert_eq!(filter_models_on_gordo(&gordo, &models).count(), 1);

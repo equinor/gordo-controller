@@ -35,7 +35,5 @@ async fn test_view_models() {
 // Helper for just this module: loading app state for testing
 async fn app_state() -> web::Data<AppState> {
     let client = helpers::client().await;
-    web::Data::new(views::AppState {
-        client: client.clone(),
-    })
+    web::Data::new(views::AppState { client: client.clone() })
 }

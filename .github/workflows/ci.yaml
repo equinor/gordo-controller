@@ -6,7 +6,14 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - '**.md'
   pull_request:
+    types:
+      - opened
+      - synchronize
+    paths-ignore:
+      - '**.md'
 
 jobs:
   build-docker:
@@ -56,6 +63,26 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  fmt:
+    name: Check format ${{ matrix.rust }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: cargo fmt
+        run: |
+          cargo fmt --check
 
   test:
     name: Test ${{ matrix.rust }} on ${{ matrix.os }}

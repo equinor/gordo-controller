@@ -1,14 +1,20 @@
 use crate::crd::gordo::Gordo;
-use kube::api::{Api, PatchParams, Patch};
+use kube::api::{Api, Patch, PatchParams};
 use kube::CustomResource;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use serde_json::json;
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use serde_json::Value;
 
 /// Represents the 'spec' field of a Model custom resource definition
 #[derive(CustomResource, Serialize, Deserialize, Clone, Debug, JsonSchema)]
-#[kube(group = "equinor.com", version = "v1", status="ModelStatus", kind = "Model", namespaced)]
+#[kube(
+    group = "equinor.com",
+    version = "v1",
+    status = "ModelStatus",
+    kind = "Model",
+    namespaced
+)]
 #[kube(shortname = "gm")]
 pub struct ModelSpec {
     #[serde(rename = "gordo-version")]
@@ -62,7 +68,10 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         .iter()
         // Filter on OwnerReference
         .filter(move |model| {
-            match (model.metadata.owner_references.to_owned(), gordo.metadata.name.to_owned()) {
+            match (
+                model.metadata.owner_references.to_owned(),
+                gordo.metadata.name.to_owned(),
+            ) {
                 (Some(owner_references), Some(name)) => owner_references.iter().any(|owner_ref| owner_ref.name == name),
                 _ => false,
             }
@@ -71,11 +80,14 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         .filter(move |model| match gordo.status.as_ref() {
             Some(status) => {
                 match model.metadata.labels.to_owned() {
-                    Some(labels) => labels
-                        .get("applications.gordo.equinor.com/project-revision")
-                        // TODO: Here for compatibility when gordo-components <= 0.46.0 used 'project-version' to refer to 'project-revision'
-                        // TODO: can remove when people have >= 0.47.0 of gordo
-                        .or_else(|| { labels.get("applications.gordo.equinor.com/project-version") }) == Some(&status.project_revision),
+                    Some(labels) => {
+                        labels
+                            .get("applications.gordo.equinor.com/project-revision")
+                            // TODO: Here for compatibility when gordo-components <= 0.46.0 used 'project-version' to refer to 'project-revision'
+                            // TODO: can remove when people have >= 0.47.0 of gordo
+                            .or_else(|| labels.get("applications.gordo.equinor.com/project-version"))
+                            == Some(&status.project_revision)
+                    }
                     None => false,
                 }
             }
@@ -83,10 +95,16 @@ pub fn filter_models_on_gordo<'a>(gordo: &'a Gordo, models: &'a [Model]) -> impl
         })
 }
 
-pub async fn patch_model_status<'a>(model_resource: &'a Api<Model>, model_name: &'a str, new_status: &ModelStatus) -> kube::Result<Model> {
+pub async fn patch_model_status<'a>(
+    model_resource: &'a Api<Model>,
+    model_name: &'a str,
+    new_status: &ModelStatus,
+) -> kube::Result<Model> {
     let patch_params = PatchParams::default();
     let patch = json!({ "status": new_status });
-    model_resource.patch_status(model_name, &patch_params, &Patch::Merge(&patch)).await
+    model_resource
+        .patch_status(model_name, &patch_params, &Patch::Merge(&patch))
+        .await
 }
 
 pub fn get_model_project<'a>(model: &'a Model) -> Option<String> {
@@ -98,7 +116,7 @@ pub fn get_model_project<'a>(model: &'a Model) -> Option<String> {
                 }
             }
             None
-        },
+        }
         _ => None,
     }
 }

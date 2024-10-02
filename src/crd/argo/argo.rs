@@ -1,6 +1,6 @@
 use kube::CustomResource;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 // Origin here https://github.com/argoproj/argo/blob/master/pkg/apis/workflow/v1alpha1/workflow_types.go#L34
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -30,8 +30,7 @@ impl Default for ArgoWorkflowPhase {
 #[kube(group = "argoproj.io", version = "v1alpha1", kind = "Workflow", namespaced)]
 #[kube(shortname = "wf")]
 #[kube(status = "ArgoWorkflowStatus")]
-pub struct ArgoWorkflowSpec {
-}
+pub struct ArgoWorkflowSpec {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct ArgoWorkflowStatus {

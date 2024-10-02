@@ -1,9 +1,9 @@
 use kube::{api::Api, client::Client};
 
-use crate::{Config};
+use crate::Config;
 
 pub mod gordo;
-pub use gordo::{Gordo, GordoSubmissionStatus, start_gordo_deploy_job};
+pub use gordo::{start_gordo_deploy_job, Gordo, GordoSubmissionStatus};
 
 pub async fn handle_gordo_state(
     gordo: &Gordo,
