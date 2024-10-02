@@ -1,5 +1,5 @@
 # gordo-controller
-Gordo controller
+[Gordo](https://github.com/equinor/gordo) controller
 
 [![CI](https://github.com/equinor/gordo-controller/workflows/CI/badge.svg)](https://github.com/equinor/gordo-controller/actions)
 
